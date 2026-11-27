@@ -61,7 +61,7 @@ opencode plugin list
 ├── src/format.ts            # formatação de relatório (puro, testável)
 ├── src/options.ts           # validação das opções
 ├── src/rpc.ts               # contrato público `model-usage.stats`
-├── src/tui.tsx              # parte TUI: rodapé ao vivo e comando /usage
+├── src/tui.tsx              # parte TUI: rodapé ao vivo e comando /model-usage
 ├── test/usage.test.ts       # testes do rastreamento
 ├── test/format.test.ts      # testes de formatação
 ├── docs/                    # documentação técnica

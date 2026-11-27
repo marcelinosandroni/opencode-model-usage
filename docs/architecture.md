@@ -76,7 +76,7 @@ Cada sessão guarda seus próprios instantes de início; o escopo `all` soma os 
 ## Superfícies
 
 1. **Servidor** (`src/index.ts`): assina os eventos, mantém o `UsageTracker`, registra a ferramenta `model_usage` e o RPC `model-usage.stats`.
-2. **TUI** (`src/tui.tsx`): desenha uma linha no rodapé do prompt e registra o comando `/usage`, que abre o relatório completo em um diálogo.
+2. **TUI** (`src/tui.tsx`): desenha uma linha no rodapé do prompt e registra o comando `/model-usage`, que abre o relatório completo em um diálogo. O nome `/usage` fica reservado para o diálogo de limites de uso do próprio OpenCode.
 3. **RPC** (`src/rpc.ts`): contrato público `model-usage.stats`, consumido pela TUI e por qualquer cliente.
 
 O relatório textual é gerado em `src/format.ts`, compartilhado entre terminal, ferramenta e RPC.

@@ -28,7 +28,7 @@ Ele não altera prompts, modelos ou credenciais: apenas lê o stream público de
 
 O plugin oferece três surfaces, todas públicas:
 
-1. **No terminal** — uma linha ao vivo no rodapé do prompt com RPM, tokens e custo, e o comando `/usage` que abre o relatório completo.
+1. **No terminal** — uma linha ao vivo no rodapé do prompt com RPM, tokens e custo, e o comando `/model-usage` que abre o relatório completo (o `/usage` nativo continua sendo o de limites de uso do OpenCode).
 2. **Pelo agente** — a ferramenta `model_usage` devolve o mesmo relatório. Funciona no cliente móvel: basta pedir "como está meu uso?".
 3. **Por RPC** — o método `model-usage.stats` expõe os números estruturados para qualquer cliente.
 

@@ -15,6 +15,7 @@ Nenhuma mudança pendente.
 - Breakdown por sessão no escopo `all`: `sessionList` lista cada sessão rastreada com totais, latência, contadores e origem dos números.
 - Duração decorrida de turnos que ainda estão em andamento.
 - Erro declarado `invalid_scope` no RPC `model-usage.stats`, com o motivo `missing_session_id`, no lugar de uma falha genérica.
+- Comando de terminal renomeado para `/model-usage`: `/usage` já pertence ao diálogo de limites de uso do OpenCode.
 
 ### Corrigido
 

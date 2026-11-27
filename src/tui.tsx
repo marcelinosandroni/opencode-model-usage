@@ -40,12 +40,14 @@ export default Plugin.define({
       mode: "global",
       commands: [
         {
-          id: "opencode.model-usage.usage",
+          id: "opencode.model-usage.show",
           title: "Show model usage",
           description: "Requests per minute, tokens and cost for the current session",
           group: "OpenCode",
           palette: true,
-          slash: { name: "usage" },
+          // "/usage" belongs to the built-in usage limits dialog, so the
+          // plugin uses its own slash name.
+          slash: { name: "model-usage" },
           run: async () => {
             await load(sessionID)
             const current = snapshot()
