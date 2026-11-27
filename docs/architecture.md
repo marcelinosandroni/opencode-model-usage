@@ -100,11 +100,17 @@ Falhas que acontecem **antes** de qualquer passo de modelo (por exemplo, um mode
 
 ## Superfícies
 
-1. **Servidor** (`src/index.ts`): assina os eventos, mantém o `UsageTracker`, registra a ferramenta `model_usage` e o RPC `model-usage.stats`.
+1. **Servidor** (`src/index.ts`): assina os eventos, mantém o `UsageTracker`, registra a ferramenta `model_usage`, o RPC `model-usage.stats` e o comando de servidor `model-usage`.
 2. **TUI** (`src/tui.tsx`): desenha uma linha no rodapé do prompt e registra o comando `/model-usage`, que abre o relatório completo em um diálogo. O nome `/usage` fica reservado para o diálogo de limites de uso do próprio OpenCode.
 3. **RPC** (`src/rpc.ts`): contrato público `model-usage.stats`, consumido pela TUI e por qualquer cliente.
 
 O relatório textual é gerado em `src/format.ts`, compartilhado entre terminal, ferramenta e RPC.
+
+### Comando de servidor
+
+O plugin registra o comando `model-usage` com `ctx.command.transform`. Quando algum cliente o executa (`POST /api/session/{id}/command`), o plugin calcula o snapshot da sessão e publica o relatório como mensagem sintética (`ctx.session.synthetic`), que aparece na conversa de qualquer cliente — inclusive no app iOS — sem chamar o modelo.
+
+A TUI tem um comando próprio com o mesmo nome, porque a TUI resolve `/model-usage` localmente e abre um diálogo em vez de escrever na conversa.
 
 ## Limites de memória
 

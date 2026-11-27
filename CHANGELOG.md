@@ -8,6 +8,12 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 Nenhuma mudança pendente.
 
+## [0.3.0] - 2026-11-27
+
+### Adicionado
+
+- Comando de servidor `model-usage`: publica o relatório como mensagem sintética na conversa, sem gastar uma chamada de modelo. Fica disponível em `GET /api/command` e em `POST /api/session/{id}/command`, então qualquer cliente (inclusive o app iOS) pode dispará-lo.
+
 ## [0.2.0] - 2026-11-27
 
 ### Adicionado

@@ -28,11 +28,22 @@ Ele não altera prompts, modelos ou credenciais: apenas lê o stream público de
 
 ## Como ver os números
 
-O plugin oferece três surfaces, todas públicas:
+O plugin oferece quatro surfaces, todas públicas:
 
 1. **No terminal** — uma linha ao vivo no rodapé do prompt com RPM, tokens e custo, e o comando `/model-usage` que abre o relatório completo (o `/usage` nativo continua sendo o de limites de uso do OpenCode).
 2. **Pelo agente** — a ferramenta `model_usage` devolve o mesmo relatório. Funciona no cliente móvel: basta pedir "como está meu uso?".
 3. **Por RPC** — o método `model-usage.stats` expõe os números estruturados para qualquer cliente.
+4. **Por comando do servidor** — o comando `model-usage` aparece em `GET /api/command` e pode ser executado por qualquer cliente com `POST /api/session/{id}/command`. Ele publica o relatório como mensagem sintética na conversa, **sem gastar uma chamada de modelo**.
+
+### No iPhone
+
+| Caminho | Como usar | Custo |
+| --- | --- | --- |
+| Chat | Peça no chat: "como está meu uso de modelo?" — o agente chama a ferramenta `model_usage` e responde na conversa. | 1 chamada de modelo |
+| Comando | Execute o comando `model-usage` pela API de comandos do cliente; o relatório aparece como mensagem na conversa. | Nenhum |
+| Notificação | Peça "manda meu uso pro celular" — o agente usa `notify_phone` (plugin `opencode-mobile-notifications`) e o resumo chega na tela bloqueada. | 1 chamada de modelo |
+
+O rodapé e o diálogo do terminal são exclusivos da TUI; no app iOS o relatório chega como mensagem da conversa ou como push.
 
 ```text
 Uso do modelo — sessão ses_x
@@ -62,7 +73,7 @@ Modelos:
 
 - **OpenCode:** V2, a partir da versão `2.4.1`, testada neste repositório.
 - **Runtime:** Node.js 20+ ou Bun.
-- **APIs usadas:** eventos públicos de sessão (`session.step.*`, `session.execution.*`, `session.usage.updated`, `session.retry.scheduled`, `session.tool.*`), `ctx.tool.transform`, `ctx.rpc.register` e, na parte TUI, `context.ui.slot`, `context.keymap.layer` e `context.client.rpc`.
+- **APIs usadas:** eventos públicos de sessão (`session.step.*`, `session.execution.*`, `session.usage.updated`, `session.retry.scheduled`, `session.tool.*`), `ctx.tool.transform`, `ctx.rpc.register`, `ctx.command.transform`, `ctx.session.synthetic` e, na parte TUI, `context.ui.slot`, `context.keymap.layer` e `context.client.rpc`.
 
 ## Instalação
 
