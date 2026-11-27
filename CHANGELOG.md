@@ -8,6 +8,17 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 Nenhuma mudança pendente.
 
+## [0.3.1] - 2026-11-27
+
+### Adicionado
+
+- Linha "Observado pelo plugin" no relatório: mostra o que o plugin acompanhou desde o carregamento quando os totais da sessão (vindos do servidor) são maiores, deixando a diferença explícita.
+- A linha de tokens passa a dizer de onde vem o número: "Tokens (totais da sessão)" ou "Tokens (rastreados)".
+
+### Corrigido
+
+- "acompanhando desde" passou a "plugin rastreando desde", para não sugerir que os totais do servidor só valem a partir do carregamento do plugin.
+
 ## [0.3.0] - 2026-11-27
 
 ### Adicionado

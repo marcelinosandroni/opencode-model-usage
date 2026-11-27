@@ -127,6 +127,28 @@ describe("format helpers", () => {
     assert.match(report, /nvidia\/nvidia\/test/)
   })
 
+  it("shows the totals observed by the plugin when the server reports more", () => {
+    const report = formatReport(
+      snapshot({
+        tracked: {
+          requests: 2,
+          failedRequests: 0,
+          tokens: { input: 5_100, output: 961, reasoning: 0, cacheRead: 295_200, cacheWrite: 0, total: 6_061 },
+          cost: 0,
+        },
+      }),
+    )
+
+    assert.match(report, /Tokens \(totais da sessão\): entrada 128\.4k/)
+    assert.match(report, /Observado pelo plugin: 2 req · in 5\.1k · out 961 · rac 0 · cache 295\.2k\/0 · \$0 \(desde o carregamento do plugin\)/)
+  })
+
+  it("does not repeat the tracked totals when they match the session totals", () => {
+    const report = formatReport(snapshot())
+
+    assert.doesNotMatch(report, /Observado pelo plugin/)
+  })
+
   it("lists the tracked sessions", () => {
     const report = formatReport(
       snapshot({

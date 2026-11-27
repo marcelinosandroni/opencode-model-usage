@@ -48,12 +48,13 @@ O rodapé e o diálogo do terminal são exclusivos da TUI; no app iOS o relatór
 ```text
 Uso do modelo — sessão ses_x
 Requisições: 3 req/min (janela de 60s) · 1.2 req/min (média de 5min) · 0.8 req/min (média)
-Requisições totais: 12 (2 falharam · 16.7% de erro) · sessões: 1 · acompanhando desde 2026-11-27T00:00:00.000Z
+Requisições totais: 12 (2 falharam · 16.7% de erro) · sessões: 1 · plugin rastreando desde 2026-11-27T00:00:00.000Z
 Erros: 2 (0.3/min · média de 5min 0.1/min · 1 da execução) · Retries: 5 (1.2/min · média de 5min 0.8/min)
 Chamadas de ferramenta: 17 (2.1/min · média de 5min 1.4/min) · Turnos: 3 (0.4/min · média de 5min 0.2/min)
-Tokens: entrada 128.4k · saída 12.9k · raciocínio 4.1k · cache leitura 210k · cache escrita 0 · total 141.3k
+Tokens (totais da sessão): entrada 128.4k · saída 12.9k · raciocínio 4.1k · cache leitura 210k · cache escrita 0 · total 141.3k
 Custo: $0.4213 (origem: sessão do servidor)
 Latência: média 3.2s · TTFT médio 820ms · falhas de ferramenta 1
+Observado pelo plugin: 2 req · in 5.1k · out 961 · rac 0 · cache 295.2k/0 · $0 (desde o carregamento do plugin)
 
 Erros por tipo:
   provider.rate-limit · 2 (66.7% dos erros · 16.7% das requisições) · 0.3/min
@@ -63,11 +64,18 @@ Turnos:
   #3 · 4 req (0 falharam) · in 12k · out 1.2k · rac 300 · cache 0/0 · $0.031 · 8.0s · succeeded
 
 Sessões:
-  ses_x · 12 req (2 falharam) · in 128.4k · out 12.9k · rac 4.1k · cache 210k/0 · $0.4213 · lat 3.2s · 3 turnos · retries 5 (1.2/min) · ferramentas 17 (2.1/min) · 2 erros (16.7%) · origem servidor
+  ses_x · 12 req (2 falharam) · in 128.4k · out 12.9k · rac 4.1k · cache 210k/0 · $0.4213 · lat 3.2s · 0 req/min · 1 turnos (0/min) · retries 5 (1.2/min) · ferramentas 17 (2.1/min) · 2 erros (16.7%) · origem servidor
 
 Modelos:
   nvidia/nvidia/test · 12 req · in 128.4k · out 12.9k · rac 4.1k · cache 210k/0 · $0.4213 · lat 3.2s · ttft 820ms · 2 erros
 ```
+
+### Duas origens de números
+
+- **Totais da sessão** vêm do servidor (`session.usage.updated`) e cobrem a sessão inteira, mesmo o que aconteceu antes de o plugin carregar.
+- **Detalhe por turno, modelo e janela por minuto** vem do que o plugin observou desde o carregamento. Atualizar o plugin reinicia essa parte.
+
+Quando os dois números divergem, o relatório mostra a linha **"Observado pelo plugin"** para deixar a diferença explícita.
 
 ## Compatibilidade
 

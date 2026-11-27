@@ -69,7 +69,7 @@ export function formatReport(snapshot: UsageSnapshot): string {
     `Requisições: ${snapshot.rpm} req/min (janela de 60s) · ${snapshot.rpm5m} req/min (média de 5min) · ${snapshot.avgRpm} req/min (média)`,
   )
   lines.push(
-    `Requisições totais: ${snapshot.requests} (${snapshot.failedRequests} falharam · ${snapshot.errorRate}% de erro) · sessões: ${snapshot.sessions} · acompanhando desde ${new Date(snapshot.trackedSince).toISOString()}`,
+    `Requisições totais: ${snapshot.requests} (${snapshot.failedRequests} falharam · ${snapshot.errorRate}% de erro) · sessões: ${snapshot.sessions} · plugin rastreando desde ${new Date(snapshot.trackedSince).toISOString()}`,
   )
   lines.push(
     `Erros: ${snapshot.errors} (${snapshot.errorRpm}/min · média de 5min ${snapshot.errorRpm5m}/min${snapshot.executionErrors > 0 ? ` · ${snapshot.executionErrors} da execução` : ""}) · Retries: ${snapshot.retries} (${snapshot.retryRpm}/min · média de 5min ${snapshot.retryRpm5m}/min)`,
@@ -78,12 +78,22 @@ export function formatReport(snapshot: UsageSnapshot): string {
     `Chamadas de ferramenta: ${snapshot.toolCalls} (${snapshot.toolRpm}/min · média de 5min ${snapshot.toolRpm5m}/min) · Turnos: ${snapshot.turnCount} (${snapshot.turnRpm}/min · média de 5min ${snapshot.turnRpm5m}/min)`,
   )
   lines.push(
-    `Tokens: entrada ${formatCount(snapshot.tokens.input)} · saída ${formatCount(snapshot.tokens.output)} · raciocínio ${formatCount(snapshot.tokens.reasoning)} · cache leitura ${formatCount(snapshot.tokens.cacheRead)} · cache escrita ${formatCount(snapshot.tokens.cacheWrite)} · total ${formatCount(snapshot.tokens.total)}`,
+    `Tokens (${snapshot.usageSource === "server" ? "totais da sessão" : "rastreados"}): entrada ${formatCount(snapshot.tokens.input)} · saída ${formatCount(snapshot.tokens.output)} · raciocínio ${formatCount(snapshot.tokens.reasoning)} · cache leitura ${formatCount(snapshot.tokens.cacheRead)} · cache escrita ${formatCount(snapshot.tokens.cacheWrite)} · total ${formatCount(snapshot.tokens.total)}`,
   )
   lines.push(`Custo: ${formatCost(snapshot.cost)} (origem: ${snapshot.usageSource === "server" ? "sessão do servidor" : "rastreado pelo plugin"})`)
   lines.push(
     `Latência: média ${formatDuration(snapshot.avgLatencyMs)} · TTFT médio ${formatDuration(snapshot.avgTtftMs)} · falhas de ferramenta ${snapshot.toolFailures}`,
   )
+
+  // The server totals cover the whole session; the plugin only sees what
+  // happened since it was loaded. Showing both avoids the surprise of a
+  // session total much larger than the sum of its turns.
+  const tracked = snapshot.tracked
+  if (snapshot.usageSource === "server" && (tracked.tokens.input !== snapshot.tokens.input || tracked.requests !== snapshot.requests)) {
+    lines.push(
+      `Observado pelo plugin: ${tracked.requests} req · ${formatTokens(tracked.tokens)} · ${formatCost(tracked.cost)} (desde o carregamento do plugin)`,
+    )
+  }
 
   if (snapshot.errorTypes.length > 0) {
     lines.push("")
