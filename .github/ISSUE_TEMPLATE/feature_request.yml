@@ -1,0 +1,26 @@
+name: Sugestão
+description: Sugira uma melhoria para o plugin.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema
+      description: Qual dificuldade o plugin deveria resolver?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+      description: Descreva a solução desejada e as alternativas consideradas.
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibilidade
+      description: A mudança usa apenas APIs públicas do OpenCode?
+    validations:
+      required: false

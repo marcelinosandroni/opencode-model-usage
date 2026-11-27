@@ -1,0 +1,44 @@
+name: Relatório de bug
+description: Informe um comportamento inesperado do plugin.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de enviar, confirme que `opencode plugin list` mostra o plugin ativo.
+  - type: input
+    id: opencode-version
+    attributes:
+      label: Versão do OpenCode
+      placeholder: "2.4.1"
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Versão do plugin
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Descrição
+      description: O que aconteceu e o que era esperado?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reprodução
+      description: Passos mínimos para reproduzir.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs relevantes
+      description: Cole somente trechos necessários e remova segredos.
+    validations:
+      required: false
