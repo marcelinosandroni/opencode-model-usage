@@ -130,6 +130,16 @@ export const ModelUsage = Rpc.define({
         },
         additionalProperties: false,
       },
+      errors: {
+        invalid_scope: {
+          type: "object",
+          properties: {
+            reason: { type: "string" },
+          },
+          required: ["reason"],
+          additionalProperties: false,
+        },
+      },
       output: {
         type: "object",
         properties: {

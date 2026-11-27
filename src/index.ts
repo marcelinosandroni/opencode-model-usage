@@ -220,10 +220,14 @@ export default Plugin.define({
     })
 
     const rpc = await ctx.rpc.register(ModelUsage, {
-      stats: async (input) => {
+      stats: async (input, context) => {
         const parsed = parseToolInput(input)
         if (parsed.scope === "session" && !parsed.sessionID) {
-          throw new Error("sessionID is required when scope is 'session'")
+          throw context.error(
+            "invalid_scope",
+            "sessionID is required when scope is 'session'",
+            { reason: "missing_session_id" },
+          )
         }
         const scope: SnapshotScope =
           parsed.scope === "session"

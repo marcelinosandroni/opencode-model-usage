@@ -153,7 +153,9 @@ const client = OpenCode.make({ baseUrl: "http://127.0.0.1:4096" })
 const stats = await client.rpc(ModelUsage).stats({ scope: "all" })
 ```
 
-O retorno é o mesmo snapshot usado pelo terminal e pela ferramenta, com `rpm`, `rpm5m`, `avgRpm`, `tokens`, `cost`, `turns` e `models`.
+O retorno é o mesmo snapshot usado pelo terminal e pela ferramenta, com `rpm`, `rpm5m`, `avgRpm`, `tokens`, `cost`, `turns`, `sessionList` e `models`.
+
+Quando `scope` é `"session"` e `sessionID` não é informado, o método devolve o erro declarado `invalid_scope` com o motivo `missing_session_id`.
 
 ## Operation
 
