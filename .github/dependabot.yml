@@ -5,3 +5,16 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # The TUI runtime modules are provided by the OpenCode host at runtime.
+      # These dev dependencies only exist for type checking, so they must stay
+      # aligned with the versions the host ships instead of tracking latest.
+      - dependency-name: "@opentui/core"
+        versions: [">=0.9.5"]
+      - dependency-name: "@opentui/solid"
+        versions: [">=0.9.5"]
+      - dependency-name: "@opencode/theme"
+        versions: [">=2.4.2"]
+      # solid-js 2.x is incompatible with @opentui/solid, which requires 1.x.
+      - dependency-name: "solid-js"
+        versions: [">=2.0.0"]
