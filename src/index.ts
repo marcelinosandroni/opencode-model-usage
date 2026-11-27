@@ -190,7 +190,7 @@ export default Plugin.define({
       editor.add({
         name: "model_usage",
         description:
-          "Show model usage metrics for the current session or for every session: requests per minute, input and output tokens per turn and session, reasoning and cache tokens, cost, latency, time to first token, retries and tool calls.",
+          "Show model usage metrics for the current session or for every session: requests per minute, input and output tokens per turn and session, reasoning and cache tokens, cost, latency, time to first token, errors by type with their percentage, retries, tool calls and turns per minute.",
         input: {
           type: "object",
           properties: {
