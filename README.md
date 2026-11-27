@@ -12,7 +12,7 @@ Ele não altera prompts, modelos ou credenciais: apenas lê o stream público de
 | Métrica | Origem | Observações |
 | --- | --- | --- |
 | Requests por minuto (RPM) | `session.step.started` | Requisições iniciadas na janela móvel de 60 s. Também há média de 5 min e média desde o início do rastreamento. |
-| **Erros por tipo** | `session.step.failed` | Contagem, **percentual sobre os erros**, **percentual sobre todas as requisições** e falhas por minuto de cada tipo (`provider.rate-limit`, `provider.internal`, …). |
+| **Erros por tipo** | `session.step.failed` + `session.execution.failed` | Contagem, **percentual sobre os erros**, **percentual sobre todas as requisições** e falhas por minuto de cada tipo (`provider.rate-limit`, `provider.internal`, …). Falhas que acontecem antes de qualquer passo de modelo (modelo inexistente, por exemplo) entram pelo evento da execução. |
 | Taxa de erro | derivado | Percentual de requisições que falharam. |
 | **Retries por minuto** | `session.retry.scheduled` | Total da sessão e por minuto (janela de 60 s e média de 5 min). |
 | **Chamadas de ferramenta por minuto** | `session.tool.called` / `session.tool.failed` | Total, por minuto e falhas. |
@@ -38,7 +38,7 @@ O plugin oferece três surfaces, todas públicas:
 Uso do modelo — sessão ses_x
 Requisições: 3 req/min (janela de 60s) · 1.2 req/min (média de 5min) · 0.8 req/min (média)
 Requisições totais: 12 (2 falharam · 16.7% de erro) · sessões: 1 · acompanhando desde 2026-11-27T00:00:00.000Z
-Erros: 2 (0.3/min · média de 5min 0.1/min) · Retries: 5 (1.2/min · média de 5min 0.8/min)
+Erros: 2 (0.3/min · média de 5min 0.1/min · 1 da execução) · Retries: 5 (1.2/min · média de 5min 0.8/min)
 Chamadas de ferramenta: 17 (2.1/min · média de 5min 1.4/min) · Turnos: 3 (0.4/min · média de 5min 0.2/min)
 Tokens: entrada 128.4k · saída 12.9k · raciocínio 4.1k · cache leitura 210k · cache escrita 0 · total 141.3k
 Custo: $0.4213 (origem: sessão do servidor)

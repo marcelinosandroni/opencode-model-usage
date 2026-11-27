@@ -140,6 +140,7 @@ export default Plugin.define({
               break
             }
             case "session.execution.failed": {
+              tracker.noteExecutionError(event.data.sessionID, event.data.error.type, event.created)
               tracker.endTurn(event.data.sessionID, event.created, "failed")
               break
             }

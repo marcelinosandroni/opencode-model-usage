@@ -72,7 +72,7 @@ export function formatReport(snapshot: UsageSnapshot): string {
     `Requisições totais: ${snapshot.requests} (${snapshot.failedRequests} falharam · ${snapshot.errorRate}% de erro) · sessões: ${snapshot.sessions} · acompanhando desde ${new Date(snapshot.trackedSince).toISOString()}`,
   )
   lines.push(
-    `Erros: ${snapshot.errors} (${snapshot.errorRpm}/min · média de 5min ${snapshot.errorRpm5m}/min) · Retries: ${snapshot.retries} (${snapshot.retryRpm}/min · média de 5min ${snapshot.retryRpm5m}/min)`,
+    `Erros: ${snapshot.errors} (${snapshot.errorRpm}/min · média de 5min ${snapshot.errorRpm5m}/min${snapshot.executionErrors > 0 ? ` · ${snapshot.executionErrors} da execução` : ""}) · Retries: ${snapshot.retries} (${snapshot.retryRpm}/min · média de 5min ${snapshot.retryRpm5m}/min)`,
   )
   lines.push(
     `Chamadas de ferramenta: ${snapshot.toolCalls} (${snapshot.toolRpm}/min · média de 5min ${snapshot.toolRpm5m}/min) · Turnos: ${snapshot.turnCount} (${snapshot.turnRpm}/min · média de 5min ${snapshot.turnRpm5m}/min)`,
@@ -118,14 +118,17 @@ export function formatErrorType(error: ErrorTypeSnapshot): string {
 
 export function formatTurn(turn: TurnSnapshot): string {
   const outcome = turn.outcome ?? (turn.running ? "em andamento" : "sem desfecho")
-  return `#${turn.index} · ${turn.requests} req (${turn.failedRequests} falharam) · ${formatTokens(turn.tokens)} · ${formatCost(turn.cost)} · ${formatDuration(turn.durationMs ?? 0)} · ${outcome}`
+  const execution = turn.executionErrors > 0 ? ` · ${turn.executionErrors} erro de execução` : ""
+  return `#${turn.index} · ${turn.requests} req (${turn.failedRequests} falharam${execution}) · ${formatTokens(turn.tokens)} · ${formatCost(turn.cost)} · ${formatDuration(turn.durationMs ?? 0)} · ${outcome}`
 }
 
 export function formatSession(session: SessionSnapshot): string {
   const source = session.usageSource === "server" ? "servidor" : "plugin"
   const running = session.runningTurns > 0 ? " · em andamento" : ""
   const errors = session.errors > 0 ? ` · ${session.errors} erros (${session.errorRate}%)` : ""
-  return `${session.sessionID} · ${session.requests} req (${session.failedRequests} falharam) · ${formatTokens(session.tokens)} · ${formatCost(session.cost)} · lat ${formatDuration(session.avgLatencyMs)} · ${session.turns} turnos · retries ${session.retries} (${session.retryRpm}/min) · ferramentas ${session.toolCalls} (${session.toolRpm}/min)${errors} · origem ${source}${running}`
+  const rpm = ` · ${session.rpm} req/min`
+  const turns = ` · ${session.turns} turnos (${session.turnRpm}/min)`
+  return `${session.sessionID} · ${session.requests} req (${session.failedRequests} falharam) · ${formatTokens(session.tokens)} · ${formatCost(session.cost)} · lat ${formatDuration(session.avgLatencyMs)}${rpm}${turns} · retries ${session.retries} (${session.retryRpm}/min) · ferramentas ${session.toolCalls} (${session.toolRpm}/min)${errors} · origem ${source}${running}`
 }
 
 export function formatModel(model: ModelSnapshot): string {

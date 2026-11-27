@@ -18,11 +18,15 @@ Nenhuma mudança pendente.
 - Chamadas de ferramenta por minuto (`toolRpm`, `toolRpm5m`).
 - Turnos por minuto (`turnRpm`, `turnRpm5m`) e total de lifetime de execuções por sessão (`turnCount`).
 - As mesmas taxas por sessão no breakdown `sessionList`.
+- Falhas que acontecem antes de qualquer passo de modelo entram no breakdown de erros por tipo, via `session.execution.failed`, com o contador `executionErrors`.
+- Breakdown por sessão com RPM e turnos por minuto de cada sessão.
 
 ### Corrigido
 
 - `rpm5m` agora é de fato uma média por minuto: o total da janela de 5 minutos dividido por 5, em vez da contagem bruta da janela.
 - As médias de 5 min de erros, retries, ferramentas e turnos passam a contar apenas os eventos dentro da janela.
+- A taxa de erro passa a usar o total de erros (incluindo falhas de execução) e não apenas as requisições que falharam.
+- Falhas por minuto de cada tipo de erro passam a vir do registro de eventos por tipo, que sobrevive ao descarte de requisições antigas.
 
 ## [0.1.1] - 2026-11-27
 

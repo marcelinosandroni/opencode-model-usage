@@ -503,5 +503,50 @@ describe("usage tracker", () => {
     assert.equal(snapshot.turnCount, 5)
     assert.equal(snapshot.sessionList[0].turns, 5)
   })
+
+  it("counts execution failures that happen before any model step", () => {
+    const tracker = new UsageTracker(0)
+    tracker.startTurn("ses_a", 1_000)
+    tracker.noteExecutionError("ses_a", "provider.model-not-found", 1_500)
+
+    const snapshot = tracker.snapshot(2_000, { kind: "session", sessionID: "ses_a" })
+    assert.equal(snapshot.errors, 1)
+    assert.equal(snapshot.executionErrors, 1)
+    assert.equal(snapshot.errorRate, 100)
+    assert.equal(snapshot.errorRpm, 1)
+    assert.equal(snapshot.errorTypes.length, 1)
+    assert.equal(snapshot.errorTypes[0].type, "provider.model-not-found")
+    assert.equal(snapshot.errorTypes[0].count, 1)
+    assert.equal(snapshot.errorTypes[0].perMinute, 1)
+    assert.equal(snapshot.turns[0].executionErrors, 1)
+    assert.equal(snapshot.sessionList[0].executionErrors, 1)
+  })
+
+  it("does not count the execution failure twice when a step already failed", () => {
+    const tracker = new UsageTracker(0)
+    tracker.startTurn("ses_a", 1_000)
+    tracker.startRequest({
+      sessionID: "ses_a",
+      messageID: "msg_1",
+      agent: "build",
+      providerID: "nvidia",
+      modelID: "nvidia/test",
+      startedAt: 1_100,
+    })
+    tracker.failRequest({
+      sessionID: "ses_a",
+      messageID: "msg_1",
+      endedAt: 1_200,
+      errorType: "provider.rate-limit",
+    })
+    tracker.noteExecutionError("ses_a", "provider.rate-limit", 1_300)
+
+    const snapshot = tracker.snapshot(2_000, { kind: "session", sessionID: "ses_a" })
+    assert.equal(snapshot.errors, 1)
+    assert.equal(snapshot.executionErrors, 0)
+    assert.equal(snapshot.errorTypes.length, 1)
+    assert.equal(snapshot.errorTypes[0].count, 1)
+    assert.equal(snapshot.errorTypes[0].perMinute, 1)
+  })
 })
 

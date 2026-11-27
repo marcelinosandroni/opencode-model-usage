@@ -39,7 +39,7 @@ ctx.event.subscribe({
 | `session.step.ended` | Fecha a requisição com tokens, custo e `finish`. |
 | `session.step.failed` | Fecha a requisição com o tipo do erro. |
 | `session.execution.started` | Abre um turno. |
-| `session.execution.succeeded/failed/interrupted` | Fecha o turno com o desfecho. |
+| `session.execution.succeeded/failed/interrupted` | Fecha o turno com o desfecho. A falha também registra o tipo do erro quando nenhum passo de modelo falhou antes (modelo inexistente, prompt inválido). |
 | `session.retry.scheduled` | Conta retry agendado pelo core. |
 | `session.tool.called/failed` | Conta chamadas e falhas de ferramenta. |
 | `session.usage.updated` | Totais cumulativos do servidor para a sessão. |
@@ -55,7 +55,7 @@ session  = agrupamento de turnos, com totais do servidor quando disponíveis
 
 - **Request** carrega modelo, agente, instante de início, TTFT, duração, tokens, custo, `finish` e tipo de erro.
 - **Turn** soma requests, tokens, custo, retries e ferramentas, e guarda o desfecho. Um turno em andamento reporta o tempo decorrido até o momento da consulta.
-- **Session** soma todos os turnos, guarda os agregados por modelo, a contagem de lifetime de erros por tipo, os totais do servidor (`serverTokens`, `serverCost`) e os instantes recentes de retry, ferramenta e turno.
+- **Session** soma todos os turnos, guarda os agregados por modelo, a contagem de lifetime de erros por tipo, os totais do servidor (`serverTokens`, `serverCost`) e os instantes recentes de erro, retry, ferramenta e turno.
 
 Ao reportar uma sessão, o plugin prefere os totais do servidor e expõe o que ele rastreou em `tracked`. O campo `usageSource` diz qual origem foi usada (`server` ou `tracked`).
 
@@ -95,6 +95,8 @@ perMinute   = falhas do tipo nos últimos 60 s
 ```
 
 O breakdown sai no escopo da sessão e no escopo `all`, onde os tipos das sessões são somados.
+
+Falhas que acontecem **antes** de qualquer passo de modelo (por exemplo, um modelo inexistente) só publicam `session.execution.failed`. Nesses casos o tracker registra o tipo do erro a partir do evento da execução, e a falha **não** é contada duas vezes quando o turno já tinha um passo que falhou — o passo é a origem autoritativa do erro. O contador `executionErrors` informa quantos erros vieram da execução.
 
 ## Superfícies
 
