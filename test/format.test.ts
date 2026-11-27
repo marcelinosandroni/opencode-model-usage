@@ -26,6 +26,16 @@ const snapshot = (overrides: Partial<UsageSnapshot> = {}): UsageSnapshot => ({
   turns: [],
   models: [],
   sessionList: [],
+  errorRate: 8.3,
+  errorRpm: 1,
+  errorRpm5m: 0.4,
+  retryRpm: 2,
+  retryRpm5m: 0.8,
+  toolRpm: 3,
+  toolRpm5m: 1.2,
+  turnRpm: 1,
+  turnRpm5m: 0.4,
+  errorTypes: [],
   tracked: {
     requests: 12,
     failedRequests: 1,
@@ -137,6 +147,17 @@ describe("format helpers", () => {
             runningTurns: 1,
             avgLatencyMs: 3_200,
             avgTtftMs: 820,
+            rpm: 3,
+            rpm5m: 2.4,
+            errorRate: 8.3,
+            errorRpm: 1,
+            retryRpm: 2,
+            retryRpm5m: 0.8,
+            toolRpm: 3,
+            toolRpm5m: 1.2,
+            turnRpm: 1,
+            turnRpm5m: 0.4,
+            errorTypes: [],
           },
         ],
       }),
@@ -147,5 +168,23 @@ describe("format helpers", () => {
     assert.match(report, /3 turnos/)
     assert.match(report, /origem servidor/)
     assert.match(report, /em andamento/)
+  })
+
+  it("lists the errors by type with their share", () => {
+    const report = formatReport(
+      snapshot({
+        errorTypes: [
+          { type: "provider.rate-limit", count: 2, percentage: 66.7, rate: 16.7, perMinute: 1 },
+          { type: "provider.internal", count: 1, percentage: 33.3, rate: 8.3, perMinute: 0 },
+        ],
+      }),
+    )
+
+    assert.match(report, /Erros por tipo:/)
+    assert.match(report, /provider\.rate-limit · 2 \(66\.7% dos erros · 16\.7% das requisições\) · 1\/min/)
+    assert.match(report, /provider\.internal · 1 \(33\.3% dos erros · 8\.3% das requisições\) · 0\/min/)
+    assert.match(report, /Erros: 1 \(1\/min/)
+    assert.match(report, /Retries: 2 \(2\/min/)
+    assert.match(report, /Chamadas de ferramenta: 5 \(3\/min/)
   })
 })

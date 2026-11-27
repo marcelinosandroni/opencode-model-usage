@@ -263,7 +263,8 @@ describe("usage tracker", () => {
 
     const snapshot = tracker.snapshot(now, { kind: "session", sessionID: "ses_a" })
     assert.equal(snapshot.rpm, 3)
-    assert.equal(snapshot.rpm5m, 4)
+    // Average per minute over the last 5 minutes: 4 requests in 5 minutes.
+    assert.equal(snapshot.rpm5m, 0.8)
     assert.equal(snapshot.requests, 4)
   })
 
@@ -413,4 +414,93 @@ describe("usage tracker", () => {
     const later = tracker.snapshot(10 * MINUTE, { kind: "session", sessionID: "ses_a" })
     assert.equal(later.rpm, 0)
     assert.equal(later.rpm5m, 0)
-  })})
+  })
+
+  it("breaks the errors down by type with their share", () => {
+    const tracker = new UsageTracker(0)
+    const fail = (messageID: string, errorType: string, at: number) => {
+      tracker.startRequest({
+        sessionID: "ses_a",
+        messageID,
+        agent: "build",
+        providerID: "nvidia",
+        modelID: "nvidia/test",
+        startedAt: at,
+      })
+      tracker.failRequest({ sessionID: "ses_a", messageID, endedAt: at + 100, errorType })
+    }
+    fail("msg_1", "provider.rate-limit", 1_000)
+    fail("msg_2", "provider.rate-limit", 1_100)
+    fail("msg_3", "provider.internal", 1_200)
+    tracker.startRequest({
+      sessionID: "ses_a",
+      messageID: "msg_4",
+      agent: "build",
+      providerID: "nvidia",
+      modelID: "nvidia/test",
+      startedAt: 1_300,
+    })
+    tracker.endRequest({
+      sessionID: "ses_a",
+      messageID: "msg_4",
+      endedAt: 1_400,
+      tokens: tokens(10, 5),
+      cost: 0.1,
+    })
+
+    const snapshot = tracker.snapshot(2_000, { kind: "session", sessionID: "ses_a" })
+    assert.equal(snapshot.errors, 3)
+    assert.equal(snapshot.failedRequests, 3)
+    assert.equal(snapshot.errorRate, 75)
+    assert.equal(snapshot.errorRpm, 3)
+    assert.equal(snapshot.errorTypes.length, 2)
+    assert.equal(snapshot.errorTypes[0].type, "provider.rate-limit")
+    assert.equal(snapshot.errorTypes[0].count, 2)
+    assert.equal(snapshot.errorTypes[0].percentage, 66.7)
+    assert.equal(snapshot.errorTypes[0].rate, 50)
+    assert.equal(snapshot.errorTypes[0].perMinute, 2)
+    assert.equal(snapshot.errorTypes[1].type, "provider.internal")
+    assert.equal(snapshot.errorTypes[1].percentage, 33.3)
+    assert.equal(snapshot.errorTypes[1].rate, 25)
+  })
+
+  it("counts retries, tool calls and turns per minute", () => {
+    const tracker = new UsageTracker(0)
+    const now = 10 * MINUTE
+    tracker.startTurn("ses_a", now - 30_000)
+    tracker.noteRetry("ses_a", now - 20_000)
+    tracker.noteRetry("ses_a", now - 10_000)
+    tracker.noteToolCall("ses_a", now - 10_000)
+    tracker.noteToolCall("ses_a", now - 10_000)
+    tracker.noteToolCall("ses_a", now - 10_000, true)
+    // older than the window
+    tracker.noteRetry("ses_a", now - 6 * MINUTE)
+    tracker.noteToolCall("ses_a", now - 6 * MINUTE)
+    tracker.startTurn("ses_a", now - 6 * MINUTE)
+
+    const snapshot = tracker.snapshot(now, { kind: "session", sessionID: "ses_a" })
+    assert.equal(snapshot.retries, 3)
+    assert.equal(snapshot.retryRpm, 2)
+    assert.equal(snapshot.retryRpm5m, 0.4)
+    assert.equal(snapshot.toolCalls, 4)
+    assert.equal(snapshot.toolRpm, 3)
+    assert.equal(snapshot.toolRpm5m, 0.6)
+    assert.equal(snapshot.toolFailures, 1)
+    assert.equal(snapshot.turnRpm, 1)
+    assert.equal(snapshot.turnRpm5m, 0.2)
+    assert.equal(snapshot.sessionList[0].turns, 2)
+  })
+
+  it("keeps the lifetime turn count when the turn list is trimmed", () => {
+    const tracker = new UsageTracker(0, { maxTurnsPerSession: 2, maxRequests: 100 })
+    for (let index = 0; index < 5; index++) {
+      tracker.startTurn("ses_a", 1_000 + index)
+      tracker.endTurn("ses_a", 1_500 + index, "succeeded")
+    }
+
+    const snapshot = tracker.snapshot(10_000, { kind: "session", sessionID: "ses_a" })
+    assert.equal(snapshot.turns.length, 2)
+    assert.equal(snapshot.sessionList[0].turns, 5)
+  })
+})
+

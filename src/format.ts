@@ -1,4 +1,11 @@
-import type { ModelSnapshot, SessionSnapshot, TokenTotalsWithTotal, TurnSnapshot, UsageSnapshot } from "./usage.js"
+import type {
+  ErrorTypeSnapshot,
+  ModelSnapshot,
+  SessionSnapshot,
+  TokenTotalsWithTotal,
+  TurnSnapshot,
+  UsageSnapshot,
+} from "./usage.js"
 
 /** Compact number formatting: 1.2k, 3.4M. */
 export function formatCount(value: number): string {
@@ -40,16 +47,17 @@ export function formatTokens(tokens: TokenTotalsWithTotal): string {
 /** One-line summary used by logs and status lines. */
 export function formatCompact(snapshot: UsageSnapshot): string {
   const scope = snapshot.scope === "session" ? `session ${snapshot.sessionID}` : `all (${snapshot.sessions} sessions)`
-  return [
+  const parts = [
     scope,
     `${snapshot.rpm} req/min`,
     `${snapshot.requests} req`,
     formatTokens(snapshot.tokens),
     formatCost(snapshot.cost),
-    snapshot.errors > 0 ? `${snapshot.errors} errors` : undefined,
   ]
-    .filter((part) => part !== undefined)
-    .join(" · ")
+  if (snapshot.errors > 0) parts.push(`${snapshot.errors} erros (${snapshot.errorRate}%)`)
+  if (snapshot.retryRpm > 0) parts.push(`${snapshot.retryRpm} retry/min`)
+  if (snapshot.toolRpm > 0) parts.push(`${snapshot.toolRpm} tools/min`)
+  return parts.join(" · ")
 }
 
 /** Full report used by the tool and the RPC consumers. */
@@ -61,15 +69,27 @@ export function formatReport(snapshot: UsageSnapshot): string {
     `Requisições: ${snapshot.rpm} req/min (janela de 60s) · ${snapshot.rpm5m} req/min (média de 5min) · ${snapshot.avgRpm} req/min (média)`,
   )
   lines.push(
-    `Requisições totais: ${snapshot.requests} (${snapshot.failedRequests} falharam) · sessões: ${snapshot.sessions} · acompanhando desde ${new Date(snapshot.trackedSince).toISOString()}`,
+    `Requisições totais: ${snapshot.requests} (${snapshot.failedRequests} falharam · ${snapshot.errorRate}% de erro) · sessões: ${snapshot.sessions} · acompanhando desde ${new Date(snapshot.trackedSince).toISOString()}`,
+  )
+  lines.push(
+    `Erros: ${snapshot.errors} (${snapshot.errorRpm}/min · média de 5min ${snapshot.errorRpm5m}/min) · Retries: ${snapshot.retries} (${snapshot.retryRpm}/min · média de 5min ${snapshot.retryRpm5m}/min)`,
+  )
+  lines.push(
+    `Chamadas de ferramenta: ${snapshot.toolCalls} (${snapshot.toolRpm}/min · média de 5min ${snapshot.toolRpm5m}/min) · Turnos: ${snapshot.turns.length} (${snapshot.turnRpm}/min · média de 5min ${snapshot.turnRpm5m}/min)`,
   )
   lines.push(
     `Tokens: entrada ${formatCount(snapshot.tokens.input)} · saída ${formatCount(snapshot.tokens.output)} · raciocínio ${formatCount(snapshot.tokens.reasoning)} · cache leitura ${formatCount(snapshot.tokens.cacheRead)} · cache escrita ${formatCount(snapshot.tokens.cacheWrite)} · total ${formatCount(snapshot.tokens.total)}`,
   )
   lines.push(`Custo: ${formatCost(snapshot.cost)} (origem: ${snapshot.usageSource === "server" ? "sessão do servidor" : "rastreado pelo plugin"})`)
   lines.push(
-    `Latência: média ${formatDuration(snapshot.avgLatencyMs)} · TTFT médio ${formatDuration(snapshot.avgTtftMs)} · erros ${snapshot.errors} · retries ${snapshot.retries} · ferramentas ${snapshot.toolCalls} (${snapshot.toolFailures} falharam)`,
+    `Latência: média ${formatDuration(snapshot.avgLatencyMs)} · TTFT médio ${formatDuration(snapshot.avgTtftMs)} · falhas de ferramenta ${snapshot.toolFailures}`,
   )
+
+  if (snapshot.errorTypes.length > 0) {
+    lines.push("")
+    lines.push("Erros por tipo:")
+    for (const error of snapshot.errorTypes) lines.push(`  ${formatErrorType(error)}`)
+  }
 
   if (snapshot.turns.length > 0) {
     lines.push("")
@@ -92,6 +112,10 @@ export function formatReport(snapshot: UsageSnapshot): string {
   return lines.join("\n")
 }
 
+export function formatErrorType(error: ErrorTypeSnapshot): string {
+  return `${error.type} · ${error.count} (${error.percentage}% dos erros · ${error.rate}% das requisições) · ${error.perMinute}/min`
+}
+
 export function formatTurn(turn: TurnSnapshot): string {
   const outcome = turn.outcome ?? (turn.running ? "em andamento" : "sem desfecho")
   return `#${turn.index} · ${turn.requests} req (${turn.failedRequests} falharam) · ${formatTokens(turn.tokens)} · ${formatCost(turn.cost)} · ${formatDuration(turn.durationMs ?? 0)} · ${outcome}`
@@ -100,7 +124,8 @@ export function formatTurn(turn: TurnSnapshot): string {
 export function formatSession(session: SessionSnapshot): string {
   const source = session.usageSource === "server" ? "servidor" : "plugin"
   const running = session.runningTurns > 0 ? " · em andamento" : ""
-  return `${session.sessionID} · ${session.requests} req (${session.failedRequests} falharam) · ${formatTokens(session.tokens)} · ${formatCost(session.cost)} · lat ${formatDuration(session.avgLatencyMs)} · ${session.turns} turnos · retries ${session.retries} · ferramentas ${session.toolCalls} · origem ${source}${running}`
+  const errors = session.errors > 0 ? ` · ${session.errors} erros (${session.errorRate}%)` : ""
+  return `${session.sessionID} · ${session.requests} req (${session.failedRequests} falharam) · ${formatTokens(session.tokens)} · ${formatCost(session.cost)} · lat ${formatDuration(session.avgLatencyMs)} · ${session.turns} turnos · retries ${session.retries} (${session.retryRpm}/min) · ferramentas ${session.toolCalls} (${session.toolRpm}/min)${errors} · origem ${source}${running}`
 }
 
 export function formatModel(model: ModelSnapshot): string {

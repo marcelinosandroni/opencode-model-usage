@@ -8,6 +8,22 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 Nenhuma mudança pendente.
 
+## [0.2.0] - 2026-11-27
+
+### Adicionado
+
+- Breakdown de erros por tipo com `count`, percentual sobre os erros, percentual sobre todas as requisições e falhas por minuto de cada tipo (`provider.rate-limit`, `provider.internal`, …).
+- Taxa de erro (`errorRate`) e erros por minuto (`errorRpm`, `errorRpm5m`).
+- Retries por minuto (`retryRpm`, `retryRpm5m`), por sessão e no escopo global.
+- Chamadas de ferramenta por minuto (`toolRpm`, `toolRpm5m`).
+- Turnos por minuto (`turnRpm`, `turnRpm5m`) e total de lifetime de execuções por sessão.
+- As mesmas taxas por sessão no breakdown `sessionList`.
+
+### Corrigido
+
+- `rpm5m` agora é de fato uma média por minuto: o total da janela de 5 minutos dividido por 5, em vez da contagem bruta da janela.
+- As médias de 5 min de erros, retries, ferramentas e turnos passam a contar apenas os eventos dentro da janela.
+
 ## [0.1.1] - 2026-11-27
 
 ### Adicionado

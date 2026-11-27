@@ -55,7 +55,7 @@ session  = agrupamento de turnos, com totais do servidor quando disponíveis
 
 - **Request** carrega modelo, agente, instante de início, TTFT, duração, tokens, custo, `finish` e tipo de erro.
 - **Turn** soma requests, tokens, custo, retries e ferramentas, e guarda o desfecho. Um turno em andamento reporta o tempo decorrido até o momento da consulta.
-- **Session** soma todos os turnos, guarda os agregados por modelo e os totais do servidor (`serverTokens`, `serverCost`).
+- **Session** soma todos os turnos, guarda os agregados por modelo, a contagem de lifetime de erros por tipo, os totais do servidor (`serverTokens`, `serverCost`) e os instantes recentes de retry, ferramenta e turno.
 
 Ao reportar uma sessão, o plugin prefere os totais do servidor e expõe o que ele rastreou em `tracked`. O campo `usageSource` diz qual origem foi usada (`server` ou `tracked`).
 
@@ -67,11 +67,34 @@ O RPM usa uma janela móvel:
 
 ```text
 rpm   = requisições iniciadas nos últimos 60 s
-rpm5m = requisições iniciadas nos últimos 5 min (média por minuto)
+rpm5m = requisições iniciadas nos últimos 5 min ÷ 5 (média por minuto)
 avgRpm = requisições totais ÷ minutos desde o início do rastreamento
 ```
 
-Cada sessão guarda seus próprios instantes de início; o escopo `all` soma os instantes de todas as sessões rastreadas.
+O mesmo modelo vale para as outras taxas:
+
+| Taxa | Janela de 60 s | Média de 5 min |
+| --- | --- | --- |
+| Requisições | `rpm` | `rpm5m` |
+| Erros | `errorRpm` | `errorRpm5m` |
+| Retries | `retryRpm` | `retryRpm5m` |
+| Chamadas de ferramenta | `toolRpm` | `toolRpm5m` |
+| Turnos | `turnRpm` | `turnRpm5m` |
+
+Cada sessão guarda seus próprios instantes de início; o escopo `all` soma os instantes de todas as sessões rastreadas. Os instantes de retry, ferramenta e turno são mantidos por 5 minutos (a maior janela usada) e descartados depois disso.
+
+## Erros por tipo
+
+Cada requisição que falha guarda o tipo do erro publicado pelo core (`provider.rate-limit`, `provider.internal`, `provider.transport`, `permission.rejected`, …). O tracker mantém a contagem de lifetime por tipo e monta:
+
+```text
+count       = falhas do tipo no total
+percentage  = count ÷ erros do escopo × 100
+rate        = count ÷ requisições do escopo × 100
+perMinute   = falhas do tipo nos últimos 60 s
+```
+
+O breakdown sai no escopo da sessão e no escopo `all`, onde os tipos das sessões são somados.
 
 ## Superfícies
 

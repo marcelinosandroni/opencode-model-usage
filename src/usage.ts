@@ -77,6 +77,25 @@ export type SessionRecord = {
   models: Map<string, ModelAggregate>
   serverTokens?: TokenTotals
   serverCost?: number
+  /** Lifetime count of executions, kept apart from the capped turn list. */
+  turnCount: number
+  /** Lifetime count of failed requests per error type. */
+  errorTypes: Map<string, number>
+  /** Recent event instants used by the per-minute windows. */
+  retryTimes: number[]
+  toolTimes: number[]
+  turnTimes: number[]
+}
+
+export type ErrorTypeSnapshot = {
+  type: string
+  count: number
+  /** Percentage of the failed requests in scope. */
+  percentage: number
+  /** Percentage of every request in scope. */
+  rate: number
+  /** Failures of this type in the last 60 seconds. */
+  perMinute: number
 }
 
 export type TurnSnapshot = {
@@ -124,6 +143,27 @@ export type SessionSnapshot = {
   runningTurns: number
   avgLatencyMs: number
   avgTtftMs: number
+  /** Requests per minute in the rolling 60 second window. */
+  rpm: number
+  /** Average requests per minute over the last 5 minutes. */
+  rpm5m: number
+  /** Failed requests as a percentage of every request. */
+  errorRate: number
+  /** Failed requests in the rolling 60 second window. */
+  errorRpm: number
+  /** Retries scheduled in the rolling 60 second window. */
+  retryRpm: number
+  /** Average retries per minute over the last 5 minutes. */
+  retryRpm5m: number
+  /** Tool calls in the rolling 60 second window. */
+  toolRpm: number
+  /** Average tool calls per minute over the last 5 minutes. */
+  toolRpm5m: number
+  /** Executions started in the rolling 60 second window. */
+  turnRpm: number
+  /** Average executions per minute over the last 5 minutes. */
+  turnRpm5m: number
+  errorTypes: ErrorTypeSnapshot[]
 }
 
 export type UsageSnapshot = {
@@ -149,6 +189,25 @@ export type UsageSnapshot = {
   turns: TurnSnapshot[]
   models: ModelSnapshot[]
   sessionList: SessionSnapshot[]
+  /** Failed requests as a percentage of every request. */
+  errorRate: number
+  /** Failed requests in the rolling 60 second window. */
+  errorRpm: number
+  /** Average failed requests per minute over the last 5 minutes. */
+  errorRpm5m: number
+  /** Retries scheduled in the rolling 60 second window. */
+  retryRpm: number
+  /** Average retries per minute over the last 5 minutes. */
+  retryRpm5m: number
+  /** Tool calls in the rolling 60 second window. */
+  toolRpm: number
+  /** Average tool calls per minute over the last 5 minutes. */
+  toolRpm5m: number
+  /** Executions started in the rolling 60 second window. */
+  turnRpm: number
+  /** Average executions per minute over the last 5 minutes. */
+  turnRpm5m: number
+  errorTypes: ErrorTypeSnapshot[]
   tracked: {
     requests: number
     failedRequests: number
@@ -313,6 +372,7 @@ export class UsageTracker {
     if (errorType !== undefined) {
       session.failedRequests += 1
       session.errors += 1
+      session.errorTypes.set(errorType, (session.errorTypes.get(errorType) ?? 0) + 1)
       const turn = session.currentTurn
       if (turn) turn.failedRequests += 1
     }
@@ -353,8 +413,11 @@ export class UsageTracker {
     }
     session.turns.push(turn)
     session.currentTurn = turn
+    session.turnCount += 1
+    session.turnTimes.push(at)
     session.lastActivityAt = at
     this.trimTurns(session)
+    this.pruneEvents(session, at)
     return turn
   }
 
@@ -374,7 +437,9 @@ export class UsageTracker {
     const session = this.sessions.get(sessionID)
     if (!session) return
     session.retries += 1
+    session.retryTimes.push(at)
     session.lastActivityAt = at
+    this.pruneEvents(session, at)
     if (session.currentTurn) session.currentTurn.retries += 1
   }
 
@@ -382,7 +447,9 @@ export class UsageTracker {
     const session = this.sessions.get(sessionID)
     if (!session) return
     session.toolCalls += 1
+    session.toolTimes.push(at)
     session.lastActivityAt = at
+    this.pruneEvents(session, at)
     if (failed) session.toolFailures += 1
     if (session.currentTurn) {
       session.currentTurn.toolCalls += 1
@@ -427,6 +494,14 @@ export class UsageTracker {
     const requests = session?.requests ?? 0
     const scoped = this.requestsFor(sessionID)
     const latency = this.latencyOf(scoped)
+    const failedRequests = session?.failedRequests ?? 0
+    const retries = session?.retries ?? 0
+    const toolCalls = session?.toolCalls ?? 0
+    const retryTimes = session?.retryTimes ?? []
+    const toolTimes = session?.toolTimes ?? []
+    const turnTimes = session?.turnTimes ?? []
+    const failedScoped = scoped.filter((request) => request.errorType !== undefined)
+    const failedTimes = failedScoped.map((request) => request.endedAt ?? request.startedAt)
 
     return {
       generatedAt: now,
@@ -437,23 +512,33 @@ export class UsageTracker {
       requests,
       failedRequests: session?.failedRequests ?? 0,
       rpm: this.rate(scoped, now, MINUTE),
-      rpm5m: this.rate(scoped, now, MINUTE * 5),
+      rpm5m: this.perMinute(scoped, now, MINUTE * 5),
       avgRpm: this.averageRate(scoped.length, now - (session?.startedAt ?? now)),
       tokens,
       cost,
       usageSource: useServer ? "server" : "tracked",
       errors: session?.errors ?? 0,
-      retries: session?.retries ?? 0,
-      toolCalls: session?.toolCalls ?? 0,
+      retries,
+      toolCalls,
       toolFailures: session?.toolFailures ?? 0,
       avgLatencyMs: latency.avgLatencyMs,
       avgTtftMs: latency.avgTtftMs,
       turns: (session?.turns ?? []).map((turn) => turnSnapshot(turn, now)),
       models: this.modelSnapshots(sessionID),
       sessionList: session ? [this.sessionSnapshotOf(session, now)] : [],
+      errorRate: percentage(failedRequests, requests),
+      errorRpm: countSince(failedTimes, now, MINUTE),
+      errorRpm5m: this.perMinuteEvents(failedTimes, now, MINUTE * 5),
+      retryRpm: countSince(retryTimes, now, MINUTE),
+      retryRpm5m: this.perMinuteEvents(retryTimes, now, MINUTE * 5),
+      toolRpm: countSince(toolTimes, now, MINUTE),
+      toolRpm5m: this.perMinuteEvents(toolTimes, now, MINUTE * 5),
+      turnRpm: countSince(turnTimes, now, MINUTE),
+      turnRpm5m: this.perMinuteEvents(turnTimes, now, MINUTE * 5),
+      errorTypes: errorTypeSnapshots(session?.errorTypes ?? new Map(), scoped, failedRequests, requests, now),
       tracked: {
         requests,
-        failedRequests: session?.failedRequests ?? 0,
+        failedRequests,
         tokens: trackedTokens,
         cost: trackedCost,
       },
@@ -474,6 +559,11 @@ export class UsageTracker {
     let allFromServer = true
     const turns: TurnSnapshot[] = []
     const sessionList: SessionSnapshot[] = []
+    const errorTypes = new Map<string, number>()
+    const retryTimes: number[] = []
+    const toolTimes: number[] = []
+    const turnTimes: number[] = []
+    let turnCount = 0
 
     for (const session of this.sessions.values()) {
       requests += session.requests
@@ -482,6 +572,13 @@ export class UsageTracker {
       retries += session.retries
       toolCalls += session.toolCalls
       toolFailures += session.toolFailures
+      turnCount += session.turnCount
+      for (const [type, count] of session.errorTypes) {
+        errorTypes.set(type, (errorTypes.get(type) ?? 0) + count)
+      }
+      retryTimes.push(...session.retryTimes)
+      toolTimes.push(...session.toolTimes)
+      turnTimes.push(...session.turnTimes)
 
       const effective = session.serverTokens ?? session.tokens
       const effectiveCost = session.serverTokens === undefined ? session.cost : (session.serverCost ?? 0)
@@ -496,6 +593,9 @@ export class UsageTracker {
     }
 
     const latency = this.latencyOf([...this.requests.values()])
+    const allRequests = [...this.requests.values()]
+    const failedScoped = allRequests.filter((request) => request.errorType !== undefined)
+    const failedTimes = failedScoped.map((request) => request.endedAt ?? request.startedAt)
 
     return {
       generatedAt: now,
@@ -504,8 +604,8 @@ export class UsageTracker {
       sessions: this.sessions.size,
       requests,
       failedRequests,
-      rpm: this.rate([...this.requests.values()], now, MINUTE),
-      rpm5m: this.rate([...this.requests.values()], now, MINUTE * 5),
+      rpm: this.rate(allRequests, now, MINUTE),
+      rpm5m: this.perMinute(allRequests, now, MINUTE * 5),
       avgRpm: this.averageRate(requests, now - this.trackedSince),
       tokens: withTotal(tokens),
       cost,
@@ -519,6 +619,16 @@ export class UsageTracker {
       turns: turns.sort((left, right) => right.startedAt - left.startedAt),
       models: this.mergedModels(),
       sessionList: sessionList.sort((left, right) => right.lastActivityAt - left.lastActivityAt),
+      errorRate: percentage(failedRequests, requests),
+      errorRpm: countSince(failedTimes, now, MINUTE),
+      errorRpm5m: this.perMinuteEvents(failedTimes, now, MINUTE * 5),
+      retryRpm: countSince(retryTimes, now, MINUTE),
+      retryRpm5m: this.perMinuteEvents(retryTimes, now, MINUTE * 5),
+      toolRpm: countSince(toolTimes, now, MINUTE),
+      toolRpm5m: this.perMinuteEvents(toolTimes, now, MINUTE * 5),
+      turnRpm: countSince(turnTimes, now, MINUTE),
+      turnRpm5m: this.perMinuteEvents(turnTimes, now, MINUTE * 5),
+      errorTypes: errorTypeSnapshots(errorTypes, allRequests, failedRequests, requests, now),
       tracked: {
         requests,
         failedRequests,
@@ -532,6 +642,8 @@ export class UsageTracker {
     const scoped = this.requestsFor(session.sessionID)
     const latency = this.latencyOf(scoped)
     const useServer = session.serverTokens !== undefined
+    const failedScoped = scoped.filter((request) => request.errorType !== undefined)
+    const failedTimes = failedScoped.map((request) => request.endedAt ?? request.startedAt)
     return {
       sessionID: session.sessionID,
       startedAt: session.startedAt,
@@ -545,10 +657,21 @@ export class UsageTracker {
       retries: session.retries,
       toolCalls: session.toolCalls,
       toolFailures: session.toolFailures,
-      turns: session.turns.length,
+      turns: session.turnCount,
       runningTurns: session.currentTurn ? 1 : 0,
       avgLatencyMs: latency.avgLatencyMs,
       avgTtftMs: latency.avgTtftMs,
+      rpm: this.rate(scoped, now, MINUTE),
+      rpm5m: this.perMinute(scoped, now, MINUTE * 5),
+      errorRate: percentage(session.failedRequests, session.requests),
+      errorRpm: countSince(failedTimes, now, MINUTE),
+      retryRpm: countSince(session.retryTimes, now, MINUTE),
+      retryRpm5m: this.perMinuteEvents(session.retryTimes, now, MINUTE * 5),
+      toolRpm: countSince(session.toolTimes, now, MINUTE),
+      toolRpm5m: this.perMinuteEvents(session.toolTimes, now, MINUTE * 5),
+      turnRpm: countSince(session.turnTimes, now, MINUTE),
+      turnRpm5m: this.perMinuteEvents(session.turnTimes, now, MINUTE * 5),
+      errorTypes: errorTypeSnapshots(session.errorTypes, scoped, session.failedRequests, session.requests, now),
     }
   }
 
@@ -633,6 +756,11 @@ export class UsageTracker {
       toolFailures: 0,
       turns: [],
       models: new Map(),
+      turnCount: 0,
+      errorTypes: new Map(),
+      retryTimes: [],
+      toolTimes: [],
+      turnTimes: [],
     }
     this.sessions.set(sessionID, created)
     return created
@@ -679,6 +807,14 @@ export class UsageTracker {
     session.turns.splice(0, excess)
   }
 
+  /** Drops instants older than the widest window the plugin reports. */
+  private pruneEvents(session: SessionRecord, at: number): void {
+    const threshold = at - MINUTE * 5
+    session.retryTimes = session.retryTimes.filter((time) => time > threshold)
+    session.toolTimes = session.toolTimes.filter((time) => time > threshold)
+    session.turnTimes = session.turnTimes.filter((time) => time > threshold)
+  }
+
   private rate(requests: RequestRecord[], now: number, windowMs: number): number {
     const threshold = now - windowMs
     let count = 0
@@ -686,10 +822,70 @@ export class UsageTracker {
     return count
   }
 
+  /** Average events per minute over a window. */
+  private perMinuteAverage(count: number, now: number, windowMs: number): number {
+    const minutes = windowMs / MINUTE
+    return Math.round((count / minutes) * 100) / 100
+  }
+
+  /** Average requests per minute over a window, counting only the window. */
+  private perMinute(requests: RequestRecord[], now: number, windowMs: number): number {
+    return this.perMinuteAverage(this.rate(requests, now, windowMs), now, windowMs)
+  }
+
+  /** Average events per minute over a window, counting only the window. */
+  private perMinuteEvents(times: number[], now: number, windowMs: number): number {
+    return this.perMinuteAverage(countSince(times, now, windowMs), now, windowMs)
+  }
+
   private averageRate(count: number, elapsedMs: number): number {
     if (elapsedMs <= 0) return count === 0 ? 0 : count
     return Math.round((count / elapsedMs) * MINUTE * 100) / 100
   }
+}
+
+/** Counts the instants inside the rolling window. */
+function countSince(times: number[], now: number, windowMs: number): number {
+  const threshold = now - windowMs
+  let count = 0
+  for (const time of times) if (time > threshold) count += 1
+  return count
+}
+
+/** Percentage of a part in a whole, rounded to one decimal. */
+export function percentage(part: number, whole: number): number {
+  if (whole === 0) return 0
+  return Math.round((part / whole) * 1000) / 10
+}
+
+/**
+ * Breaks failures down by type with the share of the failures and the share
+ * of every request, plus the failures of each type in the last minute.
+ */
+export function errorTypeSnapshots(
+  counts: Map<string, number>,
+  requests: RequestRecord[],
+  failedRequests: number,
+  totalRequests: number,
+  now: number,
+): ErrorTypeSnapshot[] {
+  const perMinute = new Map<string, number>()
+  const threshold = now - MINUTE
+  for (const request of requests) {
+    if (!request.errorType) continue
+    const at = request.endedAt ?? request.startedAt
+    if (at <= threshold) continue
+    perMinute.set(request.errorType, (perMinute.get(request.errorType) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .map(([type, count]) => ({
+      type,
+      count,
+      percentage: percentage(count, failedRequests),
+      rate: percentage(count, totalRequests),
+      perMinute: perMinute.get(type) ?? 0,
+    }))
+    .sort((left, right) => right.count - left.count || left.type.localeCompare(right.type))
 }
 
 function turnSnapshot(turn: TurnRecord, now: number): TurnSnapshot {
@@ -773,6 +969,22 @@ export function serializeSnapshot(snapshot: UsageSnapshot): Record<string, unkno
       avgLatencyMs: model.avgLatencyMs,
       avgTtftMs: model.avgTtftMs,
     })),
+    errorRate: snapshot.errorRate,
+    errorRpm: snapshot.errorRpm,
+    errorRpm5m: snapshot.errorRpm5m,
+    retryRpm: snapshot.retryRpm,
+    retryRpm5m: snapshot.retryRpm5m,
+    toolRpm: snapshot.toolRpm,
+    toolRpm5m: snapshot.toolRpm5m,
+    turnRpm: snapshot.turnRpm,
+    turnRpm5m: snapshot.turnRpm5m,
+    errorTypes: snapshot.errorTypes.map((error) => ({
+      type: error.type,
+      count: error.count,
+      percentage: error.percentage,
+      rate: error.rate,
+      perMinute: error.perMinute,
+    })),
     sessionList: snapshot.sessionList.map((session) => ({
       sessionID: session.sessionID,
       startedAt: session.startedAt,
@@ -790,6 +1002,23 @@ export function serializeSnapshot(snapshot: UsageSnapshot): Record<string, unkno
       runningTurns: session.runningTurns,
       avgLatencyMs: session.avgLatencyMs,
       avgTtftMs: session.avgTtftMs,
+      rpm: session.rpm,
+      rpm5m: session.rpm5m,
+      errorRate: session.errorRate,
+      errorRpm: session.errorRpm,
+      retryRpm: session.retryRpm,
+      retryRpm5m: session.retryRpm5m,
+      toolRpm: session.toolRpm,
+      toolRpm5m: session.toolRpm5m,
+      turnRpm: session.turnRpm,
+      turnRpm5m: session.turnRpm5m,
+      errorTypes: session.errorTypes.map((error) => ({
+        type: error.type,
+        count: error.count,
+        percentage: error.percentage,
+        rate: error.rate,
+        perMinute: error.perMinute,
+      })),
     })),
     tracked: snapshot.tracked,
   }

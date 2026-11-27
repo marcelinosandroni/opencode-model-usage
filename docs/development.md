@@ -78,6 +78,8 @@ Os testes usam `node:test` por meio do `tsx` e cobrem apenas código puro, sem s
 - contagem de retries e chamadas de ferramenta;
 - preferência pelos totais do servidor;
 - janelas de requests por minuto;
+- breakdown de erros por tipo com percentual sobre os erros e sobre as requisições;
+- retries, chamadas de ferramenta e turnos por minuto;
 - agregação do escopo `all` e remoção de sessão;
 - duração de turno em andamento e breakdown por sessão;
 - aplicação dos limites de memória (`maxTurnsPerSession` e `maxRequests`);

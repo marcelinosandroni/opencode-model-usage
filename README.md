@@ -12,14 +12,16 @@ Ele não altera prompts, modelos ou credenciais: apenas lê o stream público de
 | Métrica | Origem | Observações |
 | --- | --- | --- |
 | Requests por minuto (RPM) | `session.step.started` | Requisições iniciadas na janela móvel de 60 s. Também há média de 5 min e média desde o início do rastreamento. |
+| **Erros por tipo** | `session.step.failed` | Contagem, **percentual sobre os erros**, **percentual sobre todas as requisições** e falhas por minuto de cada tipo (`provider.rate-limit`, `provider.internal`, …). |
+| Taxa de erro | derivado | Percentual de requisições que falharam. |
+| **Retries por minuto** | `session.retry.scheduled` | Total da sessão e por minuto (janela de 60 s e média de 5 min). |
+| **Chamadas de ferramenta por minuto** | `session.tool.called` / `session.tool.failed` | Total, por minuto e falhas. |
+| **Turnos por minuto** | `session.execution.started` | Total de execuções e por minuto. |
 | Tokens de entrada / saída | `session.step.ended` | Soma de `tokens.input` e `tokens.output` por requisição, turno e sessão. |
 | Tokens de raciocínio | `session.step.ended` | `tokens.reasoning`, reportado separadamente. |
 | Tokens de cache | `session.step.ended` | `tokens.cache.read` e `tokens.cache.write`. |
 | Custo (USD) | `session.step.ended` | Soma do custo reportado pelo core. |
 | Latência | `session.step.*` | Tempo total da requisição e *time to first token* (TTFT). |
-| Erros | `session.step.failed` | Requisições que falharam e o tipo do erro. |
-| Retries | `session.retry.scheduled` | Tentativas reagendadas pelo core. |
-| Chamadas de ferramenta | `session.tool.called` / `session.tool.failed` | Volume e falhas por turno. |
 | Totais por turno | `session.execution.*` | Um turno é uma execução: pode conter várias requisições. |
 | Totais por sessão | `session.usage.updated` | Totais cumulativos do próprio servidor; usados quando disponíveis. |
 | Breakdown por sessão | agregação do plugin | O escopo `all` lista cada sessão rastreada com seus totais, latência e contadores. |
@@ -34,20 +36,26 @@ O plugin oferece três surfaces, todas públicas:
 
 ```text
 Uso do modelo — sessão ses_x
-Requisições: 3 req/min (janela de 60s) · 2.5 req/min (média de 5min) · 1.5 req/min (média)
-Requisições totais: 12 (1 falharam) · sessões: 1 · acompanhando desde 2026-11-27T00:00:00.000Z
+Requisições: 3 req/min (janela de 60s) · 1.2 req/min (média de 5min) · 0.8 req/min (média)
+Requisições totais: 12 (2 falharam · 16.7% de erro) · sessões: 1 · acompanhando desde 2026-11-27T00:00:00.000Z
+Erros: 2 (0.3/min · média de 5min 0.1/min) · Retries: 5 (1.2/min · média de 5min 0.8/min)
+Chamadas de ferramenta: 17 (2.1/min · média de 5min 1.4/min) · Turnos: 3 (0.4/min · média de 5min 0.2/min)
 Tokens: entrada 128.4k · saída 12.9k · raciocínio 4.1k · cache leitura 210k · cache escrita 0 · total 141.3k
 Custo: $0.4213 (origem: sessão do servidor)
-Latência: média 3.2s · TTFT médio 820ms · erros 1 · retries 2 · ferramentas 5 (1 falharam)
+Latência: média 3.2s · TTFT médio 820ms · falhas de ferramenta 1
+
+Erros por tipo:
+  provider.rate-limit · 2 (66.7% dos erros · 16.7% das requisições) · 0.3/min
+  provider.internal · 1 (33.3% dos erros · 8.3% das requisições) · 0.1/min
 
 Turnos:
   #3 · 4 req (0 falharam) · in 12k · out 1.2k · rac 300 · cache 0/0 · $0.031 · 8.0s · succeeded
 
 Sessões:
-  ses_x · 12 req (1 falharam) · in 128.4k · out 12.9k · rac 4.1k · cache 210k/0 · $0.4213 · lat 3.2s · 3 turnos · retries 2 · ferramentas 5 · origem servidor
+  ses_x · 12 req (2 falharam) · in 128.4k · out 12.9k · rac 4.1k · cache 210k/0 · $0.4213 · lat 3.2s · 3 turnos · retries 5 (1.2/min) · ferramentas 17 (2.1/min) · 2 erros (16.7%) · origem servidor
 
 Modelos:
-  nvidia/nvidia/test · 12 req · in 128.4k · out 12.9k · rac 4.1k · cache 210k/0 · $0.4213 · lat 3.2s · ttft 820ms · 1 erros
+  nvidia/nvidia/test · 12 req · in 128.4k · out 12.9k · rac 4.1k · cache 210k/0 · $0.4213 · lat 3.2s · ttft 820ms · 2 erros
 ```
 
 ## Compatibilidade
@@ -153,7 +161,9 @@ const client = OpenCode.make({ baseUrl: "http://127.0.0.1:4096" })
 const stats = await client.rpc(ModelUsage).stats({ scope: "all" })
 ```
 
-O retorno é o mesmo snapshot usado pelo terminal e pela ferramenta, com `rpm`, `rpm5m`, `avgRpm`, `tokens`, `cost`, `turns`, `sessionList` e `models`.
+O retorno é o mesmo snapshot usado pelo terminal e pela ferramenta, com `rpm`, `rpm5m`, `avgRpm`, `errorRate`, `errorTypes`, `retryRpm`, `toolRpm`, `turnRpm`, `tokens`, `cost`, `turns`, `sessionList` e `models`.
+
+`errorTypes` traz, para cada tipo de erro: `count` (total), `percentage` (participação nos erros), `rate` (participação em todas as requisições) e `perMinute` (falhas do tipo na janela de 60 s).
 
 Quando `scope` é `"session"` e `sessionID` não é informado, o método devolve o erro declarado `invalid_scope` com o motivo `missing_session_id`.
 
