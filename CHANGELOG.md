@@ -16,7 +16,7 @@ Nenhuma mudança pendente.
 - Taxa de erro (`errorRate`) e erros por minuto (`errorRpm`, `errorRpm5m`).
 - Retries por minuto (`retryRpm`, `retryRpm5m`), por sessão e no escopo global.
 - Chamadas de ferramenta por minuto (`toolRpm`, `toolRpm5m`).
-- Turnos por minuto (`turnRpm`, `turnRpm5m`) e total de lifetime de execuções por sessão.
+- Turnos por minuto (`turnRpm`, `turnRpm5m`) e total de lifetime de execuções por sessão (`turnCount`).
 - As mesmas taxas por sessão no breakdown `sessionList`.
 
 ### Corrigido

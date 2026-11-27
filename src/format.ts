@@ -75,7 +75,7 @@ export function formatReport(snapshot: UsageSnapshot): string {
     `Erros: ${snapshot.errors} (${snapshot.errorRpm}/min · média de 5min ${snapshot.errorRpm5m}/min) · Retries: ${snapshot.retries} (${snapshot.retryRpm}/min · média de 5min ${snapshot.retryRpm5m}/min)`,
   )
   lines.push(
-    `Chamadas de ferramenta: ${snapshot.toolCalls} (${snapshot.toolRpm}/min · média de 5min ${snapshot.toolRpm5m}/min) · Turnos: ${snapshot.turns.length} (${snapshot.turnRpm}/min · média de 5min ${snapshot.turnRpm5m}/min)`,
+    `Chamadas de ferramenta: ${snapshot.toolCalls} (${snapshot.toolRpm}/min · média de 5min ${snapshot.toolRpm5m}/min) · Turnos: ${snapshot.turnCount} (${snapshot.turnRpm}/min · média de 5min ${snapshot.turnRpm5m}/min)`,
   )
   lines.push(
     `Tokens: entrada ${formatCount(snapshot.tokens.input)} · saída ${formatCount(snapshot.tokens.output)} · raciocínio ${formatCount(snapshot.tokens.reasoning)} · cache leitura ${formatCount(snapshot.tokens.cacheRead)} · cache escrita ${formatCount(snapshot.tokens.cacheWrite)} · total ${formatCount(snapshot.tokens.total)}`,

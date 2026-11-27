@@ -500,6 +500,7 @@ describe("usage tracker", () => {
 
     const snapshot = tracker.snapshot(10_000, { kind: "session", sessionID: "ses_a" })
     assert.equal(snapshot.turns.length, 2)
+    assert.equal(snapshot.turnCount, 5)
     assert.equal(snapshot.sessionList[0].turns, 5)
   })
 })

@@ -186,6 +186,8 @@ export type UsageSnapshot = {
   toolFailures: number
   avgLatencyMs: number
   avgTtftMs: number
+  /** Executions started since the tracking started. */
+  turnCount: number
   turns: TurnSnapshot[]
   models: ModelSnapshot[]
   sessionList: SessionSnapshot[]
@@ -523,6 +525,7 @@ export class UsageTracker {
       toolFailures: session?.toolFailures ?? 0,
       avgLatencyMs: latency.avgLatencyMs,
       avgTtftMs: latency.avgTtftMs,
+      turnCount: session?.turnCount ?? 0,
       turns: (session?.turns ?? []).map((turn) => turnSnapshot(turn, now)),
       models: this.modelSnapshots(sessionID),
       sessionList: session ? [this.sessionSnapshotOf(session, now)] : [],
@@ -616,6 +619,7 @@ export class UsageTracker {
       toolFailures,
       avgLatencyMs: latency.avgLatencyMs,
       avgTtftMs: latency.avgTtftMs,
+      turnCount,
       turns: turns.sort((left, right) => right.startedAt - left.startedAt),
       models: this.mergedModels(),
       sessionList: sessionList.sort((left, right) => right.lastActivityAt - left.lastActivityAt),
@@ -943,6 +947,7 @@ export function serializeSnapshot(snapshot: UsageSnapshot): Record<string, unkno
     toolFailures: snapshot.toolFailures,
     avgLatencyMs: snapshot.avgLatencyMs,
     avgTtftMs: snapshot.avgTtftMs,
+    turnCount: snapshot.turnCount,
     turns: snapshot.turns.map((turn) => ({
       index: turn.index,
       startedAt: turn.startedAt,

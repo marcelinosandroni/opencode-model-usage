@@ -23,6 +23,7 @@ const snapshot = (overrides: Partial<UsageSnapshot> = {}): UsageSnapshot => ({
   toolFailures: 1,
   avgLatencyMs: 3_200,
   avgTtftMs: 820,
+  turnCount: 3,
   turns: [],
   models: [],
   sessionList: [],

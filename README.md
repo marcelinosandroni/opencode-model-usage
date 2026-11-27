@@ -161,7 +161,7 @@ const client = OpenCode.make({ baseUrl: "http://127.0.0.1:4096" })
 const stats = await client.rpc(ModelUsage).stats({ scope: "all" })
 ```
 
-O retorno é o mesmo snapshot usado pelo terminal e pela ferramenta, com `rpm`, `rpm5m`, `avgRpm`, `errorRate`, `errorTypes`, `retryRpm`, `toolRpm`, `turnRpm`, `tokens`, `cost`, `turns`, `sessionList` e `models`.
+O retorno é o mesmo snapshot usado pelo terminal e pela ferramenta, com `rpm`, `rpm5m`, `avgRpm`, `errorRate`, `errorTypes`, `retryRpm`, `toolRpm`, `turnRpm`, `turnCount`, `tokens`, `cost`, `turns`, `sessionList` e `models`.
 
 `errorTypes` traz, para cada tipo de erro: `count` (total), `percentage` (participação nos erros), `rate` (participação em todas as requisições) e `perMinute` (falhas do tipo na janela de 60 s).
 
