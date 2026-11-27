@@ -238,6 +238,24 @@ export default Plugin.define({
       },
     })
 
+    // Server command: any client that speaks the public command API (the web
+    // app, the iOS app) can run it and gets the report as a message in the
+    // session, without spending a model call.
+    await ctx.command.transform((editor) => {
+      editor.add({
+        name: "model-usage",
+        description: "Relatório de uso do modelo: RPM, tokens, custo, erros por tipo, retries e ferramentas",
+        execute: async (input) => {
+          const current = snapshot({ kind: "session", sessionID: input.sessionID })
+          await ctx.session.synthetic({
+            sessionID: input.sessionID,
+            text: formatReport(current),
+            description: "Uso do modelo",
+          })
+        },
+      })
+    })
+
     const timer =
       options.logInterval > 0
         ? setInterval(() => {
