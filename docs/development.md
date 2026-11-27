@@ -79,6 +79,8 @@ Os testes usam `node:test` por meio do `tsx` e cobrem apenas código puro, sem s
 - preferência pelos totais do servidor;
 - janelas de requests por minuto;
 - agregação do escopo `all` e remoção de sessão;
+- duração de turno em andamento e breakdown por sessão;
+- aplicação dos limites de memória (`maxTurnsPerSession` e `maxRequests`);
 - formatação de contagens, custos, durações e relatórios.
 
 ## Pull requests

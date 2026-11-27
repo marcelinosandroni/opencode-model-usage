@@ -54,10 +54,12 @@ session  = agrupamento de turnos, com totais do servidor quando disponíveis
 ```
 
 - **Request** carrega modelo, agente, instante de início, TTFT, duração, tokens, custo, `finish` e tipo de erro.
-- **Turn** soma requests, tokens, custo, retries e ferramentas, e guarda o desfecho.
-- **Session** soma todos os turnos e guarda também os totais do servidor (`serverTokens`, `serverCost`).
+- **Turn** soma requests, tokens, custo, retries e ferramentas, e guarda o desfecho. Um turno em andamento reporta o tempo decorrido até o momento da consulta.
+- **Session** soma todos os turnos, guarda os agregados por modelo e os totais do servidor (`serverTokens`, `serverCost`).
 
 Ao reportar uma sessão, o plugin prefere os totais do servidor e expõe o que ele rastreou em `tracked`. O campo `usageSource` diz qual origem foi usada (`server` ou `tracked`).
+
+No escopo `all`, cada sessão escolhe a própria origem: a soma final usa o total do servidor quando ele existe. O campo `sessionList` detalha cada sessão com seus totais, contadores e latência.
 
 ## Requests por minuto
 
@@ -81,9 +83,9 @@ O relatório textual é gerado em `src/format.ts`, compartilhado entre terminal,
 
 ## Limites de memória
 
-- Turnos por sessão: `maxTurnsPerSession` (padrão 50).
-- Requisições recentes em memória: `maxRequests` (padrão 1.000).
-- Sessões removidas pela API do servidor saem do rastreamento.
+- Turnos por sessão: `maxTurnsPerSession` (padrão 50). Turnos antigos saem da lista de detalhe, mas os totais da sessão continuam somando.
+- Requisições recentes em memória: `maxRequests` (padrão 1.000). É a base das janelas de RPM e das médias de latência e TTFT; os contadores de lifetime (requests, erros, retries, tokens e custo) não são afetados.
+- Sessões removidas pela API do servidor saem do rastreamento, junto de suas requisições.
 
 ## Superfície de confiança
 

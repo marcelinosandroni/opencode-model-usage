@@ -73,6 +73,47 @@ const modelSchema = {
   additionalProperties: false,
 } as const
 
+const sessionSchema = {
+  type: "object",
+  properties: {
+    sessionID: { type: "string" },
+    startedAt: { type: "number" },
+    lastActivityAt: { type: "number" },
+    requests: { type: "number" },
+    failedRequests: { type: "number" },
+    tokens: tokensSchema,
+    cost: { type: "number" },
+    usageSource: { type: "string", enum: ["server", "tracked"] },
+    errors: { type: "number" },
+    retries: { type: "number" },
+    toolCalls: { type: "number" },
+    toolFailures: { type: "number" },
+    turns: { type: "number" },
+    runningTurns: { type: "number" },
+    avgLatencyMs: { type: "number" },
+    avgTtftMs: { type: "number" },
+  },
+  required: [
+    "sessionID",
+    "startedAt",
+    "lastActivityAt",
+    "requests",
+    "failedRequests",
+    "tokens",
+    "cost",
+    "usageSource",
+    "errors",
+    "retries",
+    "toolCalls",
+    "toolFailures",
+    "turns",
+    "runningTurns",
+    "avgLatencyMs",
+    "avgTtftMs",
+  ],
+  additionalProperties: false,
+} as const
+
 /**
  * Public contract of the usage tracker. Clients can read the same numbers the
  * plugin shows in the terminal and to the agent.
@@ -113,6 +154,7 @@ export const ModelUsage = Rpc.define({
           avgTtftMs: { type: "number" },
           turns: { type: "array", items: turnSchema },
           models: { type: "array", items: modelSchema },
+          sessionList: { type: "array", items: sessionSchema },
           tracked: {
             type: "object",
             properties: {
@@ -146,6 +188,7 @@ export const ModelUsage = Rpc.define({
           "avgTtftMs",
           "turns",
           "models",
+          "sessionList",
           "tracked",
         ],
         additionalProperties: false,

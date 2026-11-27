@@ -25,6 +25,7 @@ const snapshot = (overrides: Partial<UsageSnapshot> = {}): UsageSnapshot => ({
   avgTtftMs: 820,
   turns: [],
   models: [],
+  sessionList: [],
   tracked: {
     requests: 12,
     failedRequests: 1,
@@ -111,5 +112,40 @@ describe("format helpers", () => {
     assert.match(report, /#3 · 4 req/)
     assert.match(report, /Modelos:/)
     assert.match(report, /nvidia\/nvidia\/test/)
+  })
+
+  it("lists the tracked sessions", () => {
+    const report = formatReport(
+      snapshot({
+        scope: "all",
+        sessionID: undefined,
+        sessionList: [
+          {
+            sessionID: "ses_a",
+            startedAt: 1_699_000_000_000,
+            lastActivityAt: 1_700_000_000_000,
+            requests: 12,
+            failedRequests: 1,
+            tokens: { input: 128_400, output: 12_900, reasoning: 4_100, cacheRead: 210_000, cacheWrite: 0, total: 141_300 },
+            cost: 0.4213,
+            usageSource: "server",
+            errors: 1,
+            retries: 2,
+            toolCalls: 5,
+            toolFailures: 1,
+            turns: 3,
+            runningTurns: 1,
+            avgLatencyMs: 3_200,
+            avgTtftMs: 820,
+          },
+        ],
+      }),
+    )
+
+    assert.match(report, /Sessões:/)
+    assert.match(report, /ses_a · 12 req/)
+    assert.match(report, /3 turnos/)
+    assert.match(report, /origem servidor/)
+    assert.match(report, /em andamento/)
   })
 })

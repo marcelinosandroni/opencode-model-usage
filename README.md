@@ -22,6 +22,7 @@ Ele não altera prompts, modelos ou credenciais: apenas lê o stream público de
 | Chamadas de ferramenta | `session.tool.called` / `session.tool.failed` | Volume e falhas por turno. |
 | Totais por turno | `session.execution.*` | Um turno é uma execução: pode conter várias requisições. |
 | Totais por sessão | `session.usage.updated` | Totais cumulativos do próprio servidor; usados quando disponíveis. |
+| Breakdown por sessão | agregação do plugin | O escopo `all` lista cada sessão rastreada com seus totais, latência e contadores. |
 
 ## Como ver os números
 
@@ -41,6 +42,9 @@ Latência: média 3.2s · TTFT médio 820ms · erros 1 · retries 2 · ferrament
 
 Turnos:
   #3 · 4 req (0 falharam) · in 12k · out 1.2k · rac 300 · cache 0/0 · $0.031 · 8.0s · succeeded
+
+Sessões:
+  ses_x · 12 req (1 falharam) · in 128.4k · out 12.9k · rac 4.1k · cache 210k/0 · $0.4213 · lat 3.2s · 3 turnos · retries 2 · ferramentas 5 · origem servidor
 
 Modelos:
   nvidia/nvidia/test · 12 req · in 128.4k · out 12.9k · rac 4.1k · cache 210k/0 · $0.4213 · lat 3.2s · ttft 820ms · 1 erros
@@ -116,8 +120,8 @@ A configuração é opcional. Para passar opções, use a forma de objeto:
 | `providerIDs` | `string[]` | `[]` | Só rastreia estes providers. Lista vazia rastreia todos. |
 | `modelIDs` | `string[]` | `[]` | Só rastreia estes modelos. Lista vazia rastreia todos. |
 | `trackTools` | `boolean` | `true` | Conta chamadas de ferramenta e falhas de ferramenta. |
-| `maxTurnsPerSession` | `number` | `50` | Quantos turnos manter por sessão em memória. |
-| `maxRequests` | `number` | `1000` | Quantas requisições recentes manter em memória. |
+| `maxTurnsPerSession` | `number` | `50` | Quantos turnos manter por sessão em memória. Turnos antigos saem da lista, mas os totais permanecem. |
+| `maxRequests` | `number` | `1000` | Quantas requisições recentes manter em memória. É a base das janelas de RPM e das médias de latência. |
 
 Consulte [docs/configuration.md](docs/configuration.md) para precedência, exemplos e regras de validação.
 
@@ -156,6 +160,7 @@ O retorno é o mesmo snapshot usado pelo terminal e pela ferramenta, com `rpm`, 
 - O estado vive apenas em memória e é descartado no hot reload.
 - O plugin não faz requisições de rede e não grava prompts, erros ou credenciais.
 - Os totais por sessão vêm do servidor quando ele publica `session.usage.updated`; caso contrário, o plugin soma o que observou. O campo `usageSource` indica a origem.
+- No escopo `all`, cada sessão usa o total do servidor quando disponível, e a soma final aparece em `tokens` e `cost`. O que o plugin observou fica em `tracked`.
 - As estatísticas do escopo `all` cobrem as sessões do local (projeto) onde o plugin está carregado.
 
 ## Limitações

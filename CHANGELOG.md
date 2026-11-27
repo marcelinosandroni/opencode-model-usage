@@ -8,6 +8,19 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 Nenhuma mudança pendente.
 
+## [0.1.1] - 2026-11-27
+
+### Adicionado
+
+- Breakdown por sessão no escopo `all`: `sessionList` lista cada sessão rastreada com totais, latência, contadores e origem dos números.
+- Duração decorrida de turnos que ainda estão em andamento.
+
+### Corrigido
+
+- `maxTurnsPerSession` e `maxRequests` agora são aplicados de verdade: turnos e requisições antigas saem do detalhe em memória, sem afetar os totais de lifetime.
+- Os agregados por modelo passaram a ser mantidos por sessão, então o recorte por modelo continua completo mesmo quando requisições antigas são descartadas.
+- A remoção de uma sessão não deixa mais instantes de requisição órfãos nas janelas de requests por minuto.
+
 ## [0.1.0] - 2026-11-27
 
 ### Adicionado

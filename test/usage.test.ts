@@ -322,4 +322,95 @@ describe("usage tracker", () => {
     assert.equal("outcome" in turns[0], false)
     assert.equal(turns[0].running, true)
   })
-})
+
+  it("reports the elapsed time of a running turn", () => {
+    const tracker = new UsageTracker(0)
+    tracker.startTurn("ses_a", 1_000)
+    const snapshot = tracker.snapshot(6_000, { kind: "session", sessionID: "ses_a" })
+    assert.equal(snapshot.turns[0].running, true)
+    assert.equal(snapshot.turns[0].durationMs, 5_000)
+  })
+
+  it("breaks the sessions down in the all scope", () => {
+    const tracker = new UsageTracker(0)
+    tracker.startRequest({
+      sessionID: "ses_a",
+      messageID: "msg_1",
+      agent: "build",
+      providerID: "nvidia",
+      modelID: "nvidia/test",
+      startedAt: 1_000,
+    })
+    tracker.endRequest({
+      sessionID: "ses_a",
+      messageID: "msg_1",
+      endedAt: 2_000,
+      tokens: tokens(10, 5),
+      cost: 0.5,
+    })
+    tracker.startRequest({
+      sessionID: "ses_b",
+      messageID: "msg_1",
+      agent: "build",
+      providerID: "nvidia",
+      modelID: "nvidia/test",
+      startedAt: 3_000,
+    })
+
+    const snapshot = tracker.snapshot(4_000, { kind: "all" })
+    assert.equal(snapshot.sessionList.length, 2)
+    assert.equal(snapshot.sessionList[0].sessionID, "ses_b")
+    assert.equal(snapshot.sessionList[0].runningTurns, 1)
+    assert.equal(snapshot.sessionList[1].sessionID, "ses_a")
+    assert.equal(snapshot.sessionList[1].requests, 1)
+    assert.equal(snapshot.sessionList[1].usageSource, "tracked")
+  })
+
+  it("prefers the server totals of every session in the all scope", () => {
+    const tracker = new UsageTracker(0)
+    tracker.syncSessionUsage("ses_a", tokens(500, 50), 2.5, 1_000)
+    tracker.syncSessionUsage("ses_b", tokens(100, 10), 1, 1_000)
+
+    const snapshot = tracker.snapshot(2_000, { kind: "all" })
+    assert.equal(snapshot.usageSource, "server")
+    assert.equal(snapshot.tokens.input, 600)
+    assert.equal(snapshot.cost, 3.5)
+    assert.equal(snapshot.tracked.tokens.input, 0)
+  })
+
+  it("keeps only the most recent turns per session", () => {
+    const tracker = new UsageTracker(0, { maxTurnsPerSession: 2, maxRequests: 100 })
+    for (let index = 0; index < 4; index++) {
+      tracker.startTurn("ses_a", 1_000 + index)
+      tracker.endTurn("ses_a", 1_500 + index, "succeeded")
+    }
+
+    const snapshot = tracker.snapshot(10_000, { kind: "session", sessionID: "ses_a" })
+    assert.equal(snapshot.turns.length, 2)
+    assert.equal(snapshot.turns[0].index, 3)
+    assert.equal(snapshot.turns[1].index, 4)
+  })
+
+  it("keeps only the most recent requests", () => {
+    const tracker = new UsageTracker(0, { maxTurnsPerSession: 50, maxRequests: 2 })
+    for (let index = 0; index < 4; index++) {
+      tracker.startRequest({
+        sessionID: "ses_a",
+        messageID: `msg_${index}`,
+        agent: "build",
+        providerID: "nvidia",
+        modelID: "nvidia/test",
+        startedAt: 1_000 + index,
+      })
+    }
+
+    const snapshot = tracker.snapshot(10_000, { kind: "session", sessionID: "ses_a" })
+    assert.equal(snapshot.requests, 4)
+    assert.equal(snapshot.models[0].requests, 4)
+    // Only the two retained requests still count towards the rolling window.
+    assert.equal(snapshot.rpm, 2)
+
+    const later = tracker.snapshot(10 * MINUTE, { kind: "session", sessionID: "ses_a" })
+    assert.equal(later.rpm, 0)
+    assert.equal(later.rpm5m, 0)
+  })})

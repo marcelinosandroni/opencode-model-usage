@@ -1,4 +1,4 @@
-import type { ModelSnapshot, TokenTotalsWithTotal, TurnSnapshot, UsageSnapshot } from "./usage.js"
+import type { ModelSnapshot, SessionSnapshot, TokenTotalsWithTotal, TurnSnapshot, UsageSnapshot } from "./usage.js"
 
 /** Compact number formatting: 1.2k, 3.4M. */
 export function formatCount(value: number): string {
@@ -77,6 +77,12 @@ export function formatReport(snapshot: UsageSnapshot): string {
     for (const turn of snapshot.turns) lines.push(`  ${formatTurn(turn)}`)
   }
 
+  if (snapshot.sessionList.length > 0) {
+    lines.push("")
+    lines.push("Sessões:")
+    for (const session of snapshot.sessionList) lines.push(`  ${formatSession(session)}`)
+  }
+
   if (snapshot.models.length > 0) {
     lines.push("")
     lines.push("Modelos:")
@@ -89,6 +95,12 @@ export function formatReport(snapshot: UsageSnapshot): string {
 export function formatTurn(turn: TurnSnapshot): string {
   const outcome = turn.outcome ?? (turn.running ? "em andamento" : "sem desfecho")
   return `#${turn.index} · ${turn.requests} req (${turn.failedRequests} falharam) · ${formatTokens(turn.tokens)} · ${formatCost(turn.cost)} · ${formatDuration(turn.durationMs ?? 0)} · ${outcome}`
+}
+
+export function formatSession(session: SessionSnapshot): string {
+  const source = session.usageSource === "server" ? "servidor" : "plugin"
+  const running = session.runningTurns > 0 ? " · em andamento" : ""
+  return `${session.sessionID} · ${session.requests} req (${session.failedRequests} falharam) · ${formatTokens(session.tokens)} · ${formatCost(session.cost)} · lat ${formatDuration(session.avgLatencyMs)} · ${session.turns} turnos · retries ${session.retries} · ferramentas ${session.toolCalls} · origem ${source}${running}`
 }
 
 export function formatModel(model: ModelSnapshot): string {

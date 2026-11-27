@@ -13,7 +13,6 @@ As opções são JSON e podem ser fornecidas na entrada `plugins` da configuraç
 | `trackTools` | `boolean` | `true` | Conta chamadas de ferramenta e falhas de ferramenta. |
 | `maxTurnsPerSession` | `number` | `50` | Quantos turnos manter por sessão em memória. |
 | `maxRequests` | `number` | `1000` | Quantas requisições recentes manter em memória. |
-
 ## Comportamento padrão
 
 ```json
@@ -85,6 +84,7 @@ O OpenCode recarrega a configuração e o plugin. Não é preciso reiniciar o se
 2. `providerIDs` e `modelIDs` limitam quais requisições entram nas estatísticas.
 3. `trackTools: false` remove chamadas e falhas de ferramenta das contagens.
 4. Os totais por sessão do servidor têm prioridade sobre a soma local; `usageSource` indica a origem usada.
+5. `maxTurnsPerSession` e `maxRequests` limitam o detalhe mantido em memória, nunca os totais de lifetime.
 
 ## Validação
 

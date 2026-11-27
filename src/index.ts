@@ -42,7 +42,10 @@ export default Plugin.define({
       return
     }
 
-    const tracker = new UsageTracker(Date.now())
+    const tracker = new UsageTracker(Date.now(), {
+      maxTurnsPerSession: options.maxTurnsPerSession,
+      maxRequests: options.maxRequests,
+    })
     const controller = new AbortController()
 
     log("info", "enabled", {
