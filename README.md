@@ -1,3 +1,5 @@
+> **[Arquivado]** Este plugin mudou para o monorepo **[marcelinosandroni/opencode-plugins](https://github.com/marcelinosandroni/opencode-plugins)** (pacote `packages/model-usage`). Instale de lá: `opencode plugin add "github:marcelinosandroni/opencode-plugins#main::path:packages/model-usage"`.
+
 # OpenCode Model Usage
 
 [![CI](https://github.com/marcelinosandroni/opencode-model-usage/actions/workflows/ci.yml/badge.svg)](https://github.com/marcelinosandroni/opencode-model-usage/actions/workflows/ci.yml)
