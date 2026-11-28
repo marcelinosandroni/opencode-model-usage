@@ -292,9 +292,16 @@ export default Plugin.define({
           const result = (await client.send({ title: message.title, body: message.body })) as PhoneSendResult
           if (result.sent) return true
           log("warn", "daily summary was not delivered", { targets: result.targets })
+          await ctx.storage
+            .set("daily-summary:last-attempt", { date: tracker.dayKeyOf(Date.now()), error: `not delivered (${result.targets} targets)` })
+            .catch(() => undefined)
           return false
         } catch (cause) {
-          log("warn", `daily summary could not be sent: ${cause instanceof Error ? cause.message : String(cause)}`)
+          const error = cause instanceof Error ? cause.message : String(cause)
+          log("warn", `daily summary could not be sent: ${error}`)
+          await ctx.storage
+            .set("daily-summary:last-attempt", { date: tracker.dayKeyOf(Date.now()), error })
+            .catch(() => undefined)
           return false
         }
       }
