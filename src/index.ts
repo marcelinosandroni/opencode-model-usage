@@ -306,21 +306,29 @@ export default Plugin.define({
         }
       }
 
+      const tick = async (): Promise<void> => {
+        const now = Date.now()
+        const date = tracker.dayKeyOf(now)
+        if (lastSentDate === date) return
+        if (minutesOfDay(now, daily.timeZone) < targetMinutes) return
+        // A failing relay must not be retried every tick.
+        if (now - lastAttemptAt < 10 * 60_000) return
+        lastAttemptAt = now
+        if (await send()) {
+          lastSentDate = date
+          await ctx.storage.set("daily-summary:last", { date }).catch(() => undefined)
+        }
+      }
+
       summaryTimer = setInterval(() => {
-        void (async () => {
-          const now = Date.now()
-          const date = tracker.dayKeyOf(now)
-          if (lastSentDate === date) return
-          if (minutesOfDay(now, daily.timeZone) < targetMinutes) return
-          // A failing relay must not be retried every tick.
-          if (now - lastAttemptAt < 10 * 60_000) return
-          lastAttemptAt = now
-          if (await send()) {
-            lastSentDate = date
-            await ctx.storage.set("daily-summary:last", { date }).catch(() => undefined)
-          }
-        })().catch(() => undefined)
+        void tick().catch(() => undefined)
       }, 30_000)
+      // The first check runs right away, so a server started after the
+      // scheduled time sends the summary it missed instead of waiting a day.
+      void tick().catch((cause) => log("warn", `daily summary tick failed: ${cause instanceof Error ? cause.message : String(cause)}`))
+      await ctx.storage
+        .set("daily-summary:armed", { at: daily.at, timeZone: daily.timeZone ?? "system", target: targetMinutes })
+        .catch(() => undefined)
     }
 
     return async () => {
