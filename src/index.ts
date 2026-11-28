@@ -272,9 +272,6 @@ export default Plugin.define({
 
     // ---- daily summary over the phone notifications plugin ----------------
 
-    // Diagnostics: what the plugin actually received from the configuration.
-    await ctx.storage.set("daily-summary:options", (ctx.options ?? null) as never).catch(() => undefined)
-
     let summaryTimer: ReturnType<typeof setInterval> | undefined
     if (daily.enabled) {
       const targetMinutes = parseTimeOfDay(daily.at) ?? 20 * 60
