@@ -8,6 +8,12 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 Nenhuma mudança pendente.
 
+## [0.4.0] - 2026-11-28
+
+### Adicionado
+
+- **Resumo diário por push**: buckets de uso por dia calendário (guardados por 7 dias, com fuso configurável) e um agendador que envia o resumo pelo plugin `opencode-phone-notify` (RPC `mobile-notifications.send`). Por padrão, às 20:00 no fuso do servidor; horário, fuso e templates são configuráveis via `dailySummary`.
+
 ## [0.3.1] - 2026-11-27
 
 ### Adicionado

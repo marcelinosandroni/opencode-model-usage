@@ -238,6 +238,23 @@ export type TrackerLimits = {
   maxTurnsPerSession: number
   /** How many recent requests to keep in memory. */
   maxRequests: number
+  /** IANA time zone used to bucket the daily counters. Defaults to the system zone. */
+  timeZone?: string
+}
+
+/** One calendar day of usage, in the tracker's time zone. */
+export type DayBucket = {
+  date: string
+  requests: number
+  failedRequests: number
+  errors: number
+  executionErrors: number
+  retries: number
+  toolCalls: number
+  toolFailures: number
+  turns: number
+  tokens: TokenTotals
+  cost: number
 }
 
 export const MINUTE = 60_000
@@ -277,6 +294,37 @@ export function tokensFromUsage(usage: {
 
 const requestKey = (sessionID: string, messageID: string) => `${sessionID}:${messageID}`
 
+/** How many calendar days of usage the tracker keeps for the daily summary. */
+const MAX_DAYS = 7
+
+/** `YYYY-MM-DD` of a date in the given IANA zone, or the system zone when omitted. */
+function dayFormatter(timeZone?: string): Intl.DateTimeFormat {
+  if (timeZone) {
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" })
+    } catch {
+      // An unknown zone falls through to the system default.
+    }
+  }
+  return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" })
+}
+
+function emptyDay(date: string): DayBucket {
+  return {
+    date,
+    requests: 0,
+    failedRequests: 0,
+    errors: 0,
+    executionErrors: 0,
+    retries: 0,
+    toolCalls: 0,
+    toolFailures: 0,
+    turns: 0,
+    tokens: emptyTokens(),
+    cost: 0,
+  }
+}
+
 /**
  * Tracks model usage from public OpenCode events.
  *
@@ -290,11 +338,55 @@ export class UsageTracker {
   private readonly requests = new Map<string, RequestRecord>()
   private readonly trackedSince: number
   private readonly limits: TrackerLimits
+  /** Usage per calendar day, newest last, kept for `maxDays` days. */
+  private readonly days = new Map<string, DayBucket>()
+  private readonly dayFormatter: Intl.DateTimeFormat
   private turnCounter = 0
 
   constructor(startedAt = Date.now(), limits: TrackerLimits = { maxTurnsPerSession: 50, maxRequests: 1_000 }) {
     this.trackedSince = startedAt
     this.limits = limits
+    this.dayFormatter = dayFormatter(limits.timeZone)
+  }
+
+  /** The calendar day of a timestamp, in the tracker's time zone (`YYYY-MM-DD`). */
+  dayKeyOf(at: number): string {
+    return this.dayFormatter.format(new Date(at))
+  }
+
+  /** The daily bucket of a timestamp, creating today's when missing. */
+  day(at: number): DayBucket {
+    const date = this.dayKeyOf(at)
+    let bucket = this.days.get(date)
+    if (!bucket) {
+      bucket = emptyDay(date)
+      this.days.set(date, bucket)
+      this.trimDays()
+    }
+    return bucket
+  }
+
+  /** A copy of one day's counters; today's by default. */
+  daySummary(dateKey?: string): DayBucket {
+    const date = dateKey ?? this.dayKeyOf(Date.now())
+    const bucket = this.days.get(date)
+    return bucket ? { ...bucket, tokens: { ...bucket.tokens } } : emptyDay(date)
+  }
+
+  /** The days kept in memory, oldest first. */
+  dayKeys(): string[] {
+    return [...this.days.keys()].sort()
+  }
+
+  /** The tracker's day formatter time zone, when one was configured. */
+  get timeZone(): string | undefined {
+    return this.limits.timeZone
+  }
+
+  private trimDays(): void {
+    const excess = this.days.size - MAX_DAYS
+    if (excess <= 0) return
+    for (const date of [...this.days.keys()].sort().slice(0, excess)) this.days.delete(date)
   }
 
   startRequest(input: {
@@ -321,6 +413,7 @@ export class UsageTracker {
     this.requests.set(key, request)
     session.requests += 1
     session.lastActivityAt = input.startedAt
+    this.day(input.startedAt).requests += 1
     const turn = session.currentTurn ?? this.startTurn(input.sessionID, input.startedAt)
     turn.requests += 1
     const model = this.sessionModel(session, input.providerID, input.modelID)
@@ -384,9 +477,14 @@ export class UsageTracker {
     session.tokens = sumTokens(session.tokens, request.tokens)
     session.cost += request.cost
     session.lastActivityAt = input.endedAt
+    const day = this.day(input.endedAt)
+    day.tokens = sumTokens(day.tokens, request.tokens)
+    day.cost += request.cost
     if (errorType !== undefined) {
       session.failedRequests += 1
       session.errors += 1
+      day.failedRequests += 1
+      day.errors += 1
       session.errorTypes.set(errorType, (session.errorTypes.get(errorType) ?? 0) + 1)
       this.noteErrorTime(session, errorType, input.endedAt)
       const turn = session.currentTurn
@@ -431,6 +529,7 @@ export class UsageTracker {
     session.turns.push(turn)
     session.currentTurn = turn
     session.turnCount += 1
+    this.day(at).turns += 1
     session.turnTimes.push(at)
     session.lastActivityAt = at
     this.trimTurns(session)
@@ -464,6 +563,9 @@ export class UsageTracker {
     if (turn && turn.failedRequests > 0) return
     session.errors += 1
     session.executionErrors += 1
+    const day = this.day(at)
+    day.errors += 1
+    day.executionErrors += 1
     session.errorTypes.set(errorType, (session.errorTypes.get(errorType) ?? 0) + 1)
     session.executionErrorTimes.push(at)
     this.noteErrorTime(session, errorType, at)
@@ -483,6 +585,7 @@ export class UsageTracker {
     const session = this.sessions.get(sessionID)
     if (!session) return
     session.retries += 1
+    this.day(at).retries += 1
     session.retryTimes.push(at)
     session.lastActivityAt = at
     this.pruneEvents(session, at)
@@ -493,10 +596,15 @@ export class UsageTracker {
     const session = this.sessions.get(sessionID)
     if (!session) return
     session.toolCalls += 1
+    const day = this.day(at)
+    day.toolCalls += 1
+    if (failed) {
+      session.toolFailures += 1
+      day.toolFailures += 1
+    }
     session.toolTimes.push(at)
     session.lastActivityAt = at
     this.pruneEvents(session, at)
-    if (failed) session.toolFailures += 1
     if (session.currentTurn) {
       session.currentTurn.toolCalls += 1
       if (failed) session.currentTurn.toolFailures += 1

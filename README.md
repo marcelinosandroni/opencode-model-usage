@@ -182,6 +182,36 @@ const stats = await client.rpc(ModelUsage).stats({ scope: "all" })
 
 O retorno é o mesmo snapshot usado pelo terminal e pela ferramenta, com `rpm`, `rpm5m`, `avgRpm`, `errorRate`, `errorTypes`, `retryRpm`, `toolRpm`, `turnRpm`, `turnCount`, `tokens`, `cost`, `turns`, `sessionList` e `models`.
 
+## Resumo diário no celular
+
+Com o plugin [`opencode-phone-notify`](https://github.com/marcelinosandroni/opencode-phone-notify) instalado, o `opencode-model-usage` manda um **resumo diário por push**, por padrão às **20:00** no horário do servidor:
+
+```json
+{
+  "package": "github:marcelinosandroni/opencode-model-usage",
+  "options": {
+    "dailySummary": {
+      "enabled": true,
+      "at": "20:00",
+      "timeZone": "America/Sao_Paulo",
+      "title": "Uso do modelo · {date}",
+      "body": "{requests} req ({turns} turnos) · in {input} · out {output} · {errors} erros · {retries} retries · {tools} tools · {cost}"
+    }
+  }
+}
+```
+
+| Opção | Padrão | Descrição |
+| --- | --- | --- |
+| `enabled` | `true` | Liga/desliga o resumo. |
+| `at` | `"20:00"` | Hora do envio (`HH:MM` no fuso escolhido). Se o servidor estiver fora do ar na hora, envia no primeiro check depois dela. |
+| `timeZone` | fuso do servidor | Fuso IANA para a hora e para os contadores do dia (`America/Sao_Paulo`, por exemplo). |
+| `title` / `body` | ver acima | Templates com placeholders. |
+
+Placeholders do corpo: `{date}`, `{time}`, `{requests}`, `{failed}`, `{errors}`, `{retries}`, `{tools}`, `{turns}`, `{input}`, `{output}`, `{reasoning}`, `{cacheRead}`, `{cacheWrite}`, `{total}`, `{cost}`.
+
+Os contadores do dia são buckets por calendário (guardados por 7 dias), contados com os mesmos eventos do relatório: requisições, tokens, custo, erros, retries, ferramentas e turnos. Sem o plugin de notificações instalado, o resumo não é entregue e o plugin apenas registra um aviso.
+
 `errorTypes` traz, para cada tipo de erro: `count` (total), `percentage` (participação nos erros), `rate` (participação em todas as requisições) e `perMinute` (falhas do tipo na janela de 60 s).
 
 Quando `scope` é `"session"` e `sessionID` não é informado, o método devolve o erro declarado `invalid_scope` com o motivo `missing_session_id`.

@@ -1,7 +1,9 @@
 import { Plugin } from "@opencode/plugin"
 import { formatCompact, formatReport } from "./format.js"
 import { modelAllowed, resolveOptions, type ResolvedOptions } from "./options.js"
+import { PhoneNotifySend, type PhoneSendResult } from "./notify.js"
 import { ModelUsage } from "./rpc.js"
+import { composeDaily, minutesOfDay, parseTimeOfDay, resolveDailyOptions } from "./summary.js"
 import { tokensFromUsage, serializeSnapshot, UsageTracker, type SnapshotScope, type UsageSnapshot } from "./usage.js"
 
 const log = (level: "info" | "warn" | "error", message: string, details: Record<string, unknown> = {}) => {
@@ -42,9 +44,11 @@ export default Plugin.define({
       return
     }
 
+    const daily = resolveDailyOptions((ctx.options as Record<string, unknown>)?.dailySummary)
     const tracker = new UsageTracker(Date.now(), {
       maxTurnsPerSession: options.maxTurnsPerSession,
       maxRequests: options.maxRequests,
+      timeZone: daily.timeZone,
     })
     const controller = new AbortController()
 
@@ -53,6 +57,7 @@ export default Plugin.define({
       providerIDs: [...options.providerIDs],
       modelIDs: [...options.modelIDs],
       trackTools: options.trackTools,
+      dailySummary: daily.enabled ? daily.at : "off",
     })
 
     const scopeFor = (scope: ToolInput, fallbackSessionID: string): SnapshotScope => {
@@ -265,9 +270,56 @@ export default Plugin.define({
           }, options.logInterval)
         : undefined
 
+    // ---- daily summary over the phone notifications plugin ----------------
+
+    let summaryTimer: ReturnType<typeof setInterval> | undefined
+    if (daily.enabled) {
+      const targetMinutes = parseTimeOfDay(daily.at) ?? 20 * 60
+      let lastSentDate: string | undefined
+      let lastAttemptAt = 0
+      try {
+        const stored = (await ctx.storage.get("daily-summary:last")) as { date?: string } | undefined
+        lastSentDate = stored?.date
+      } catch {
+        // Without durable state the summary may repeat once after a restart; acceptable.
+      }
+
+      const send = async (): Promise<boolean> => {
+        const client = ctx.rpc(PhoneNotifySend)
+        const bucket = tracker.daySummary()
+        const message = composeDaily(daily, bucket)
+        try {
+          const result = (await client.send({ title: message.title, body: message.body })) as PhoneSendResult
+          if (result.sent) return true
+          log("warn", "daily summary was not delivered", { targets: result.targets })
+          return false
+        } catch (cause) {
+          log("warn", `daily summary could not be sent: ${cause instanceof Error ? cause.message : String(cause)}`)
+          return false
+        }
+      }
+
+      summaryTimer = setInterval(() => {
+        void (async () => {
+          const now = Date.now()
+          const date = tracker.dayKeyOf(now)
+          if (lastSentDate === date) return
+          if (minutesOfDay(now, daily.timeZone) < targetMinutes) return
+          // A failing relay must not be retried every tick.
+          if (now - lastAttemptAt < 10 * 60_000) return
+          lastAttemptAt = now
+          if (await send()) {
+            lastSentDate = date
+            await ctx.storage.set("daily-summary:last", { date }).catch(() => undefined)
+          }
+        })().catch(() => undefined)
+      }, 30_000)
+    }
+
     return async () => {
       controller.abort()
       if (timer) clearInterval(timer)
+      if (summaryTimer) clearInterval(summaryTimer)
       await tool.dispose()
       await rpc.dispose()
     }
